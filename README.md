@@ -56,7 +56,7 @@ be able to run the following command directly. This command will list out all su
 and its usage.
 
     ```
-    stock help
+    pachon help
     ```
 
 4. You might need [agux/roprox](https://github.com/agux/roprox) to run in parallel in order to fetch publicly available proxy servers.
@@ -64,7 +64,7 @@ and its usage.
 5. To start fetching A-share market data:
 
     ```
-    stock get
+    pachon get
     ```
 
 *there are still some config parse problem, instruction required*
