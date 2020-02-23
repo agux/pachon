@@ -1,6 +1,8 @@
 # Pachon
 
-China A-share market data mining, engineering & analysis tool written in go
+China A-share market data mining, engineering & analysis tool written in go.
+
+Migrated from [carusyte/stock](https://github.com/carusyte/stock)
 
 ## Highlight Features
 
