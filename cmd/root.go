@@ -5,8 +5,8 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "stock",
-	Short: "Stock is a tool for China A-share market investment.",
+	Use:   "pachon",
+	Short: "Pachon is a tool for China A-share market data mining, engineering and analysis.",
 	Long:  `Please provide subcommand to take further actions.`,
 }
 

@@ -1771,7 +1771,7 @@ func getPcalJobs() (jobs []*pcaljob, e error) {
 				klid >= ?
 			ORDER BY code , klid) t
 		WHERE
-			(code , klid) NOT IN (SELECT 
+			(code, klid) NOT IN (SELECT 
 					code, klid
 				FROM
 					stockrel

@@ -79,7 +79,7 @@ var stzWccCmd = &cobra.Command{
 var pcalWccCmd = &cobra.Command{
 	Use:     "pcal",
 	Short:   "Pre-calculate eligible wcc and optionally export and upload inference file for cloud inference.",
-	Example: "stock sample wcc pcal -p /Volumes/WD-1TB/wcc_infer --rbase wcc_infer",
+	Example: "pachon sample wcc pcal -p /Volumes/WD-1TB/wcc_infer --rbase wcc_infer",
 	Run: func(cmd *cobra.Command, args []string) {
 		sampler.PcalWcc(expInferFile, upload, nocache, overwrite, localPath, rbase)
 	},
@@ -88,7 +88,7 @@ var pcalWccCmd = &cobra.Command{
 var expWccCmd = &cobra.Command{
 	Use:     "exp",
 	Short:   "Export eligible wcc inference file and optionally upload it for cloud inference.",
-	Example: "stock sample wcc exp -p /Volumes/WD-1TB/wcc_infer --rbase wcc_infer",
+	Example: "pachon sample wcc exp -p /Volumes/WD-1TB/wcc_infer --rbase wcc_infer",
 	Run: func(cmd *cobra.Command, args []string) {
 		sampler.ExpInferFile(localPath, rbase, upload, nocache, overwrite, chron)
 	},
@@ -97,7 +97,7 @@ var expWccCmd = &cobra.Command{
 var impWccCmd = &cobra.Command{
 	Use:     "imp",
 	Short:   "Import WCC inference result file from local or remote.",
-	Example: "stock sample wcc imp -t wccir_tasklog -p gs://carusytes_bucket/wcc_infer_results",
+	Example: "pachon sample wcc imp -t wccir_tasklog -p gs://carusytes_bucket/wcc_infer_results",
 	Run: func(cmd *cobra.Command, args []string) {
 		sampler.ImpWcc(tasklog, targetPath, del)
 	},
