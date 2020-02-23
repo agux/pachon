@@ -5,8 +5,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/carusyte/stock/conf"
-	"github.com/carusyte/stock/db"
+	"github.com/agux/pachon/conf"
+	"github.com/agux/pachon/db"
 	"github.com/gchaincl/dotsql"
 	"github.com/sirupsen/logrus"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"

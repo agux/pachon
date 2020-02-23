@@ -1,5 +1,5 @@
 package indc
 
-import "github.com/carusyte/stock/global"
+import "github.com/agux/pachon/global"
 
 var log = global.Log

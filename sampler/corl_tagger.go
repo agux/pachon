@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/carusyte/stock/conf"
+	"github.com/agux/pachon/conf"
 
 	"github.com/pkg/errors"
 )

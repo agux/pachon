@@ -16,7 +16,7 @@ China A-share analysis tool written in go
 
 github.com
 
-- [carustye/roprox](https://github.com/carusyte/roprox) for rotating proxy
+- [agux/roprox](https://github.com/agux/roprox) for rotating proxy
 - [sirupsen/logrus](https://github.com/sirupsen/logrus) for logging
 - [spf13/cobra](https://github.com/spf13/cobra") for cli interfaces
 
@@ -34,14 +34,14 @@ golang.org
     # have latest git installed (v2.24)
 
     # this might take few minutes
-    cd %GOPATH%\src\github.com\carusyte\stock
+    cd %GOPATH%\src\github.com\agux\pachon
     go get ...
 
     # known issue https://github.com/grpc/grpc-go/issues/3312
     cd %GOPATH%\src\google.golang.org\grpc
     git revert 336cf8d       
 
-    cd %GOPATH%\src\github.com\carusyte\stock
+    cd %GOPATH%\src\github.com\agux\pachon
     go install
 
 ### Run
@@ -59,7 +59,7 @@ and its usage.
     stock help
     ```
 
-4. You might need [carustye/roprox](https://github.com/carusyte/roprox) to run in parallel in order to fetch publicly available proxy servers.
+4. You might need [agux/roprox](https://github.com/agux/roprox) to run in parallel in order to fetch publicly available proxy servers.
 
 5. To start fetching A-share market data:
 

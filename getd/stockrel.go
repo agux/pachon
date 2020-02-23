@@ -1,7 +1,7 @@
 package getd
 
 import (
-	"github.com/carusyte/stock/model"
+	"github.com/agux/pachon/model"
 )
 
 //UpdateStockRels updates stock relationship data in db.

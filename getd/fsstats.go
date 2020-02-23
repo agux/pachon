@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/carusyte/stock/conf"
+	"github.com/agux/pachon/conf"
 )
 
 //CollectFsStats updates feature scaling stats.

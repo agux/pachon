@@ -7,7 +7,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/carusyte/stock/global"
+	"github.com/agux/pachon/global"
 	"github.com/olekukonko/tablewriter"
 )
 

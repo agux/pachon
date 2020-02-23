@@ -3,7 +3,7 @@ package cmd
 import (
 	"os"
 
-	"github.com/carusyte/stock/sampler"
+	"github.com/agux/pachon/sampler"
 	"github.com/spf13/cobra"
 )
 

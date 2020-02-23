@@ -1,6 +1,6 @@
 package getd
 
-import "github.com/carusyte/stock/conf"
+import "github.com/agux/pachon/conf"
 
 //Cleanup cleans up any resources allocated for the program, including processes running outside of this one.
 func Cleanup() {

@@ -1,7 +1,7 @@
 package indc
 
 import (
-	"github.com/carusyte/stock/model"
+	"github.com/agux/pachon/model"
 )
 
 //MACD calculates MACD indicator for the given parameters

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/carusyte/stock/global"
-	"github.com/carusyte/stock/util"
+	"github.com/agux/pachon/global"
+	"github.com/agux/pachon/util"
 	"github.com/pkg/errors"
 	"gopkg.in/gorp.v2"
 )

@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/carusyte/stock/getd"
+	"github.com/agux/pachon/getd"
 	"github.com/spf13/cobra"
 )
 

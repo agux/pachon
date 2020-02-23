@@ -5,9 +5,9 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/carusyte/stock/util"
+	"github.com/agux/pachon/util"
 
-	"github.com/carusyte/stock/model"
+	"github.com/agux/pachon/model"
 	"github.com/pkg/errors"
 )
 

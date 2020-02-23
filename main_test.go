@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/carusyte/stock/conf"
-	"github.com/carusyte/stock/global"
-	"github.com/carusyte/stock/model"
+	"github.com/agux/pachon/conf"
+	"github.com/agux/pachon/global"
+	"github.com/agux/pachon/model"
 	"github.com/mjanda/go-dtw"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/ssgreg/repeat"

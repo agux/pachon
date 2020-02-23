@@ -7,11 +7,11 @@ import (
 	"math/rand"
 	"sync"
 
-	"github.com/carusyte/stock/indc"
+	"github.com/agux/pachon/indc"
 
-	"github.com/carusyte/stock/conf"
-	"github.com/carusyte/stock/model"
-	"github.com/carusyte/stock/util"
+	"github.com/agux/pachon/conf"
+	"github.com/agux/pachon/model"
+	"github.com/agux/pachon/util"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 )

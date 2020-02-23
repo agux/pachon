@@ -14,10 +14,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/carusyte/roprox/data"
-	"github.com/carusyte/roprox/types"
-	"github.com/carusyte/stock/conf"
-	"github.com/carusyte/stock/global"
+	"github.com/agux/pachon/conf"
+	"github.com/agux/pachon/global"
+	"github.com/agux/roprox/data"
+	"github.com/agux/roprox/types"
 	"github.com/ssgreg/repeat"
 )
 

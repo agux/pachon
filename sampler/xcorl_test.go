@@ -3,7 +3,7 @@ package sampler
 import (
 	"testing"
 
-	"github.com/carusyte/stock/model"
+	"github.com/agux/pachon/model"
 )
 
 func Test_sampXCorlTrnAt(t *testing.T) {

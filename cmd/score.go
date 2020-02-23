@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/carusyte/stock/conf"
-	"github.com/carusyte/stock/getd"
-	"github.com/carusyte/stock/global"
-	"github.com/carusyte/stock/score"
+	"github.com/agux/pachon/conf"
+	"github.com/agux/pachon/getd"
+	"github.com/agux/pachon/global"
+	"github.com/agux/pachon/score"
 	"github.com/spf13/cobra"
 )
 

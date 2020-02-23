@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/carusyte/stock/model"
+	"github.com/agux/pachon/model"
 )
 
 func Test_getKlineEM(t *testing.T) {

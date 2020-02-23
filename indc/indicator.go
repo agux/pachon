@@ -6,7 +6,7 @@ import (
 
 	"github.com/montanaflynn/stats"
 
-	"github.com/carusyte/stock/model"
+	"github.com/agux/pachon/model"
 )
 
 //MA calculates moving average for given values.

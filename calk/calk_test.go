@@ -2,21 +2,22 @@ package main
 
 import (
 	"fmt"
-	"github.com/carusyte/stock/db"
-	"github.com/carusyte/stock/model"
-	"github.com/carusyte/stock/util"
-	"github.com/gchaincl/dotsql"
-	"gopkg.in/gorp.v2"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/agux/pachon/db"
+	"github.com/agux/pachon/model"
+	"github.com/agux/pachon/util"
+	"github.com/gchaincl/dotsql"
+	"gopkg.in/gorp.v2"
 )
 
 var dbMap *gorp.DbMap
 
 func init() {
 	var err error
-	dot, err = dotsql.LoadFromFile("/Users/jx/ProgramData/go/src/github.com/carusyte/stock/ask/sql.txt")
+	dot, err = dotsql.LoadFromFile("/Users/jx/ProgramData/go/src/github.com/agux/pachon/ask/sql.txt")
 	util.CheckErr(err, "failed to init dotsql")
 	dbMap = db.Get(false, false)
 }

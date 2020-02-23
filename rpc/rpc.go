@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/agux/pachon/conf"
+	"github.com/agux/pachon/global"
 	"github.com/bitly/go-hostpool"
-	"github.com/carusyte/stock/conf"
-	"github.com/carusyte/stock/global"
 
 	"github.com/pkg/errors"
 )

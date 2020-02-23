@@ -3,8 +3,8 @@ package main
 import (
 	"time"
 
-	"github.com/carusyte/stock/global"
-	"github.com/carusyte/stock/score"
+	"github.com/agux/pachon/global"
+	"github.com/agux/pachon/score"
 )
 
 var log = global.Log

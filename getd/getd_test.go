@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/carusyte/stock/model"
+	"github.com/agux/pachon/model"
 
 	"reflect"
 	"time"

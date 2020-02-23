@@ -4,8 +4,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/carusyte/stock/db"
-	"github.com/carusyte/stock/util"
+	"github.com/agux/pachon/db"
+	"github.com/agux/pachon/util"
 	"gopkg.in/gorp.v2"
 )
 

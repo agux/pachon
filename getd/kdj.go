@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	rm "github.com/carusyte/rima/model"
-	"github.com/carusyte/stock/conf"
-	"github.com/carusyte/stock/indc"
-	"github.com/carusyte/stock/model"
-	"github.com/carusyte/stock/rpc"
-	"github.com/carusyte/stock/util"
+	"github.com/agux/pachon/conf"
+	"github.com/agux/pachon/indc"
+	"github.com/agux/pachon/model"
+	"github.com/agux/pachon/rpc"
+	"github.com/agux/pachon/util"
+	rm "github.com/agux/rigma/model"
 	uuid "github.com/satori/go.uuid"
 )
 

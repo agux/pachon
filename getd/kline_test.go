@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/carusyte/stock/model"
-	"github.com/carusyte/stock/util"
+	"github.com/agux/pachon/model"
+	"github.com/agux/pachon/util"
 )
 
 func TestParseLastJson(t *testing.T) {

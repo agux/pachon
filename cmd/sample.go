@@ -4,9 +4,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/carusyte/stock/conf"
-	"github.com/carusyte/stock/getd"
-	"github.com/carusyte/stock/sampler"
+	"github.com/agux/pachon/conf"
+	"github.com/agux/pachon/getd"
+	"github.com/agux/pachon/sampler"
 	"github.com/spf13/cobra"
 )
 

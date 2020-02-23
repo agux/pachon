@@ -3,7 +3,7 @@ package getd
 import (
 	"testing"
 
-	"github.com/carusyte/stock/model"
+	"github.com/agux/pachon/model"
 	"github.com/sirupsen/logrus"
 )
 

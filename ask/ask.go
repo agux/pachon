@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/carusyte/stock/advisor"
-	"github.com/carusyte/stock/db"
-	"github.com/carusyte/stock/getd"
+	"github.com/agux/pachon/advisor"
+	"github.com/agux/pachon/db"
+	"github.com/agux/pachon/getd"
 	"gopkg.in/gorp.v2"
 )
 

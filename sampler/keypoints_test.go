@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/carusyte/stock/global"
-	"github.com/carusyte/stock/model"
+	"github.com/agux/pachon/global"
+	"github.com/agux/pachon/model"
 )
 
 func TestLremaSample(t *testing.T) {

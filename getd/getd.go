@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/carusyte/stock/conf"
-	"github.com/carusyte/stock/global"
-	"github.com/carusyte/stock/model"
-	"github.com/carusyte/stock/util"
+	"github.com/agux/pachon/conf"
+	"github.com/agux/pachon/global"
+	"github.com/agux/pachon/model"
+	"github.com/agux/pachon/util"
 )
 
 //Get miscellaneous stock info.

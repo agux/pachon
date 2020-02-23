@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/carusyte/stock/global"
+	"github.com/agux/pachon/global"
 	"github.com/sciter-sdk/go-sciter"
 	"github.com/sciter-sdk/go-sciter/window"
 )

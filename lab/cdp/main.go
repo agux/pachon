@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/carusyte/stock/model"
-	"github.com/carusyte/stock/getd"
+	"github.com/agux/pachon/getd"
+	"github.com/agux/pachon/model"
 )
 
 func main() {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/carusyte/stock/model"
+	"github.com/agux/pachon/model"
 )
 
 func TestGetTrDataBtwn(t *testing.T) {

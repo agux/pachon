@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"cloud.google.com/go/storage"
-	"github.com/carusyte/stock/conf"
+	"github.com/agux/pachon/conf"
 )
 
 const userAgent = "gcloud-golang-storage/20151204"

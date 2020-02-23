@@ -2,7 +2,8 @@ package rpc
 
 import (
 	"testing"
-	"github.com/carusyte/stock/util"
+
+	"github.com/agux/pachon/util"
 )
 
 func TestWordCount(t *testing.T) {

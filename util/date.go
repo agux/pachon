@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/carusyte/stock/global"
+	"github.com/agux/pachon/global"
 )
 
 //SameWeek checks if two dates denoted by respective strings are in the same week.

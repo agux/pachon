@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/carusyte/stock/conf"
+	"github.com/agux/pachon/conf"
 
 	//mysql driver
 	_ "github.com/go-sql-driver/mysql"

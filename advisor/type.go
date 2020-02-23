@@ -2,12 +2,13 @@ package advisor
 
 import (
 	"bytes"
-	"github.com/carusyte/stock/db"
-	"github.com/carusyte/stock/util"
+	"reflect"
+
+	"github.com/agux/pachon/db"
+	"github.com/agux/pachon/util"
 	"github.com/gchaincl/dotsql"
 	"github.com/olekukonko/tablewriter"
 	"gopkg.in/gorp.v2"
-	"reflect"
 )
 
 type advisor struct {
@@ -16,7 +17,7 @@ type advisor struct {
 }
 
 func New() *advisor {
-	dot, err := dotsql.LoadFromFile("/Users/jx/ProgramData/go/src/github.com/carusyte/stock/ask/sql.txt")
+	dot, err := dotsql.LoadFromFile("/Users/jx/ProgramData/go/src/github.com/agux/pachon/ask/sql.txt")
 	util.CheckErr(err, "failed to init dotsql")
 	a := &advisor{db.Get(false, false), dot}
 	return a

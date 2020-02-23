@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/carusyte/stock/conf"
-	"github.com/carusyte/stock/model"
+	"github.com/agux/pachon/conf"
+	"github.com/agux/pachon/model"
 )
 
 func Test_getKlineXQ(t *testing.T) {

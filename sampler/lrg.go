@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/carusyte/stock/getd"
-	"github.com/carusyte/stock/model"
-	"github.com/carusyte/stock/util"
+	"github.com/agux/pachon/getd"
+	"github.com/agux/pachon/model"
+	"github.com/agux/pachon/util"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 )

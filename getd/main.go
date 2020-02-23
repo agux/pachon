@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/carusyte/stock/global"
+	"github.com/agux/pachon/global"
 )
 
 var (

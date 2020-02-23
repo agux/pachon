@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/carusyte/stock/indc"
-	"github.com/carusyte/stock/model"
-	"github.com/carusyte/stock/util"
+	"github.com/agux/pachon/indc"
+	"github.com/agux/pachon/model"
+	"github.com/agux/pachon/util"
 	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
 )

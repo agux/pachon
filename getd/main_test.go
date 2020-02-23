@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/carusyte/stock/model"
+	"github.com/agux/pachon/model"
 	"github.com/montanaflynn/stats"
 )
 

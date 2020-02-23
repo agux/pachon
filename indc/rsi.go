@@ -3,7 +3,7 @@ package indc
 import (
 	"math"
 
-	"github.com/carusyte/stock/model"
+	"github.com/agux/pachon/model"
 )
 
 //RSI calculates Relative Strength Indicator for the given parameters

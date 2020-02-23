@@ -8,14 +8,14 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/carusyte/stock/getd"
-	"github.com/carusyte/stock/util"
+	"github.com/agux/pachon/getd"
+	"github.com/agux/pachon/util"
 	"github.com/montanaflynn/stats"
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/carusyte/stock/conf"
-	"github.com/carusyte/stock/global"
-	"github.com/carusyte/stock/model"
+	"github.com/agux/pachon/conf"
+	"github.com/agux/pachon/global"
+	"github.com/agux/pachon/model"
 	"github.com/pkg/errors"
 )
 

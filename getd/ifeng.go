@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/carusyte/stock/model"
-	"github.com/carusyte/stock/util"
+	"github.com/agux/pachon/model"
+	"github.com/agux/pachon/util"
 )
 
 //ParseIfengBonus parses stock bonus info from Ifeng

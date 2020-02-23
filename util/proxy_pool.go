@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/carusyte/stock/conf"
-	"github.com/carusyte/stock/global"
+	"github.com/agux/pachon/conf"
+	"github.com/agux/pachon/global"
 	"github.com/pkg/errors"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"

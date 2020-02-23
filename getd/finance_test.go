@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/carusyte/stock/model"
+	"github.com/agux/pachon/model"
 )
 
 func TestGetFinance(t *testing.T) {

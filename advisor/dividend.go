@@ -3,7 +3,7 @@ package advisor
 import (
 	"reflect"
 
-	"github.com/carusyte/stock/util"
+	"github.com/agux/pachon/util"
 )
 
 type cols struct {

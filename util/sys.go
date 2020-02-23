@@ -13,7 +13,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/carusyte/stock/conf"
+	"github.com/agux/pachon/conf"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/ssgreg/repeat"
