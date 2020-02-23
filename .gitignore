@@ -1,4 +1,3 @@
-.gitignore
 stock.log
 .DS_Store
 debug.test
@@ -10,4 +9,5 @@ test/debug
 debug
 .history/*
 __debug_bin
+pachon
 stock
