@@ -1,6 +1,6 @@
-# Stock
+# Pachon
 
-China A-share analysis tool written in go
+China A-share market data mining, engineering & analysis tool written in go
 
 ## Highlight Features
 
