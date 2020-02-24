@@ -32,16 +32,10 @@ github.com/PuerkitoBio/goquery v1.5.1/go.mod h1:GsLWisAFVj4WgDibEWF4pvYnkVQBpKBK
 github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d h1:G0m3OIz70MZUWq3EgK3CesDbo8upS2Vm9/P3FtgI+Jk=
 github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=
 github.com/agux/pachon v0.0.0-20200223063027-fabd3dd71b54/go.mod h1:4NtQj1T0e/R3Rvl5JmMEjyhqgvt8wfns0dXF+0YHSHo=
-github.com/agux/rigma v0.0.0-20171206152456-a28b79643985 h1:81JTV6hWTOaE08/hVKDjdjlHZtGXOgBUJUCsMGIOTMM=
-github.com/agux/rigma v0.0.0-20171206152456-a28b79643985/go.mod h1:zs/rI/wV039alz9k9rn2kbMXtXXFU7r4GbcAM0PjmUo=
-github.com/agux/rigma v0.0.0-20200223063330-9ce0a3390ded h1:yUGyeOFHuu3c13Uhu5I1mu+Q6LyGXxNzK2LzH6H2wUM=
-github.com/agux/rigma v0.0.0-20200223063330-9ce0a3390ded/go.mod h1:ylr2aQsUTdsw0AzrnW0o4XF+s7JL5E0UNzjhgxLJgnI=
 github.com/agux/rigma v0.0.0-20200223072712-591e65e9bedd h1:sRkAKydrzAPjOlB5XYUcSFvmLpMnjveGNL9caCT3USs=
 github.com/agux/rigma v0.0.0-20200223072712-591e65e9bedd/go.mod h1:ksfdV04GqpVaV/Q3lRgMoXmn/xuoVp36QZ/ns9J/XPM=
 github.com/agux/roprox v0.0.0-20200222155758-f2e44248e23e h1:QgbSLu8gA5Xt3PwSOPXY9g+0ckKTLfuXSSPkPaNWnR0=
 github.com/agux/roprox v0.0.0-20200222155758-f2e44248e23e/go.mod h1:H3yg16ZReELGLh9jzYREe49G7YUft74RMo1er6LUaHU=
-github.com/agux/roprox v0.0.0-20200223091613-c7ea5cea870c h1:I/EpvkdOvgXpxpwfwCLRV/dqUbsSre7Yw2mrQelxNWo=
-github.com/agux/roprox v0.0.0-20200223091613-c7ea5cea870c/go.mod h1:H3yg16ZReELGLh9jzYREe49G7YUft74RMo1er6LUaHU=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/andybalholm/cascadia v1.0.0 h1:hOCXnnZ5A+3eVDX8pvgl4kofXv2ELss0bKcqRySc45o=
@@ -58,8 +52,6 @@ github.com/bitly/go-hostpool v0.1.0/go.mod h1:4gOCgp6+NZnVqlKyZ/iBZFTAJKembaVENU
 github.com/carusyte/rima v0.0.0-20171206152456-a28b79643985/go.mod h1:fjhr7LagAvQIVI5vCKyqe3//UlipvrFddz5uITVVp3s=
 github.com/carusyte/roprox v0.0.0-20200110091438-c3572b84d04f h1:CcHMuz9zEyV2jIook8B0nx9mhO/gQ32zbnQLKLFihFk=
 github.com/carusyte/roprox v0.0.0-20200110091438-c3572b84d04f/go.mod h1:bVEGj1Bc4G1Qx/Fy6p0TqN7zpLHrvlinDPLAtuvJ9Zw=
-github.com/carusyte/roprox v0.0.0-20200222144427-bd131407b566 h1:eCCXrEHiRu0SycAekPRpQV9O8Q4RPSXfV/8ksPt/ME4=
-github.com/carusyte/roprox v0.0.0-20200222144427-bd131407b566/go.mod h1:TPAX/oRRNJIMjGquI8KWZHWWGijtI87EJQ3nuke1BwE=
 github.com/carusyte/stock v0.0.0-20200222142039-fdac3fb05bbf h1:u8oARNXAC/LP1RzOnb9VrO1QSA6Zq1TrYReZ1qRa0YI=
 github.com/carusyte/stock v0.0.0-20200222142039-fdac3fb05bbf/go.mod h1:sEcX3ridq/uXumYIKFEuoCGapFRbSIA6Ofj67GFOpy0=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=

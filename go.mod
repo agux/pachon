@@ -7,9 +7,7 @@ require (
 	cloud.google.com/go/storage v1.5.0
 	github.com/PuerkitoBio/goquery v1.5.1
 	github.com/agux/rigma v0.0.0-20200223072712-591e65e9bedd
-	github.com/agux/roprox v0.0.0-20200223091613-c7ea5cea870c
 	github.com/bitly/go-hostpool v0.1.0
-	github.com/carusyte/roprox v0.0.0-20200222144427-bd131407b566 // indirect
 	github.com/chromedp/cdproto v0.0.0-20200209033844-7e00b02ea7d2 // indirect
 	github.com/chromedp/chromedp v0.5.3
 	github.com/gchaincl/dotsql v1.0.0

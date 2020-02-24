@@ -16,8 +16,6 @@ import (
 
 	"github.com/agux/pachon/conf"
 	"github.com/agux/pachon/global"
-	"github.com/agux/roprox/data"
-	"github.com/agux/roprox/types"
 	"github.com/ssgreg/repeat"
 )
 
@@ -86,8 +84,8 @@ func PickUserAgent() (ua string, e error) {
 	return agentPool[rand.Intn(len(agentPool))], nil
 }
 
-func loadUserAgents() (agents []*types.UserAgent) {
-	_, e := data.DB.Select(&agents, "select * from user_agents where hardware_type = ? order by updated_at desc", "computer")
+func loadUserAgents() (agents []*UserAgent) {
+	_, e := global.Dbmap.Select(&agents, "select * from user_agents where hardware_type = ? order by updated_at desc", "computer")
 	if e != nil {
 		if "sql: no rows in result set" != e.Error() {
 			log.Panicln("failed to run sql", e)
@@ -96,7 +94,7 @@ func loadUserAgents() (agents []*types.UserAgent) {
 	return
 }
 
-func mergeAgents(agents []*types.UserAgent) (e error) {
+func mergeAgents(agents []*UserAgent) (e error) {
 	fields := []string{
 		"id", "user_agent", "times_seen", "simple_software_string", "software_name", "software_version", "software_type",
 		"software_sub_type", "hardware_type", "first_seen_at", "last_seen_at", "updated_at",
@@ -138,7 +136,7 @@ func mergeAgents(agents []*types.UserAgent) (e error) {
 	stmt := fmt.Sprintf("INSERT INTO user_agents (%s) VALUES %s on duplicate key update %s",
 		strings.Join(fields, ","), strings.Join(valueStrings, ","), strings.Join(updFieldStr, ","))
 	for ; rt < retry; rt++ {
-		_, e = data.DB.Exec(stmt, valueArgs...)
+		_, e = global.Dbmap.Exec(stmt, valueArgs...)
 		if e != nil {
 			fmt.Println(e)
 			if strings.Contains(e.Error(), "Deadlock") {
@@ -153,7 +151,7 @@ func mergeAgents(agents []*types.UserAgent) (e error) {
 	return
 }
 
-func readCSV(src string) (agents []*types.UserAgent, err error) {
+func readCSV(src string) (agents []*UserAgent, err error) {
 	f, err := os.Open(src)
 	if err != nil {
 		return
@@ -201,7 +199,7 @@ func readCSV(src string) (agents []*types.UserAgent, err error) {
 				//skip header line
 				continue
 			}
-			agents = append(agents, &types.UserAgent{
+			agents = append(agents, &UserAgent{
 				ID:                   ln[0],
 				UserAgent:            ln[1],
 				TimesSeen:            ln[2],
@@ -261,4 +259,20 @@ func downloadFile(filepath string, url string) (err error) {
 	}
 
 	return nil
+}
+
+//UserAgent represents user_agent table structure.
+type UserAgent struct {
+	ID                   string
+	UserAgent            string `db:"user_agent"`
+	TimesSeen            string `db:"times_seen"`
+	SimpleSoftwareString string `db:"simple_software_string"`
+	SoftwareName         string `db:"software_name"`
+	SoftwareVersion      string `db:"software_version"`
+	SoftwareType         string `db:"software_type"`
+	SoftwareSubType      string `db:"software_sub_type"`
+	HardWareType         string `db:"hardware_type"`
+	FirstSeenAt          string `db:"first_seen_at"`
+	LastSeenAt           string `db:"last_seen_at"`
+	UpdatedAt            string `db:"updated_at"`
 }

@@ -33,7 +33,6 @@ func HTTPGet(link string, headers map[string]string,
 		host = r[len(r)-1]
 	}
 
-	var client *http.Client
 	req, e := http.NewRequest(http.MethodGet, link, nil)
 	if e != nil {
 		log.Panicf("unable to create http request: %+v", e)
@@ -58,42 +57,15 @@ func HTTPGet(link string, headers map[string]string,
 		req.Header.Set("User-Agent", conf.Args.Network.DefaultUserAgent)
 	}
 
-	var proxyAddr string
-	if px == nil {
-		//no proxy used
-		client = &http.Client{Timeout: time.Second * time.Duration(conf.Args.Network.HTTPTimeout)}
-	} else {
-		proxyAddr = fmt.Sprintf("%s://%s:%s", px.Type, px.Host, px.Port)
-		switch px.Type {
-		case "socks5":
-			// create a socks5 dialer
-			dialer, e := proxy.SOCKS5("tcp", fmt.Sprintf("%s:%s", px.Host, px.Port), nil, proxy.Direct)
-			if e != nil {
-				log.Warnf("can't create socks5 proxy dialer: %+v", e)
-				return nil, errors.WithStack(e)
-			}
-			httpTransport := &http.Transport{Dial: dialer.Dial}
-			client = &http.Client{Timeout: time.Second * time.Duration(conf.Args.Network.HTTPTimeout),
-				Transport: httpTransport}
-		case "http":
-			//http proxy
-			proxyAddr := fmt.Sprintf("%s://%s:%s", px.Type, px.Host, px.Port)
-			proxyURL, e := url.Parse(proxyAddr)
-			if e != nil {
-				log.Warnf("invalid proxy: %s, %+v", proxyAddr, e)
-				return nil, errors.WithStack(e)
-			}
-			client = &http.Client{
-				Timeout:   time.Second * time.Duration(conf.Args.Network.HTTPTimeout),
-				Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
-		default:
-			return nil, errors.Errorf("unsupported proxy: %+v", px)
-		}
-	}
-
 	for _, c := range cookies {
 		req.AddCookie(c)
 	}
+
+	proxyAddr := ""
+	if px != nil {
+		proxyAddr = fmt.Sprintf("%s://%s:%s", px.Type, px.Host, px.Port)
+	}
+	client, e := httpClient(px)
 
 	op := func(c int) error {
 		res, e = client.Do(req)
@@ -204,31 +176,8 @@ func HTTPGetResponse(link string, headers map[string]string,
 				return nil, errors.WithStack(e)
 			}
 			proxyAddr = fmt.Sprintf("%s://%s:%s", prx.Type, prx.Host, prx.Port)
-			switch prx.Type {
-			case "socks5":
-				// create a socks5 dialer
-				dialer, err := proxy.SOCKS5("tcp", fmt.Sprintf("%s:%s", prx.Host, prx.Port), nil, proxy.Direct)
-				if err != nil {
-					log.Printf("can't connect to the socks5 proxy: %+v", err)
-					return nil, errors.WithStack(err)
-				}
-				// setup a http client
-				httpTransport := &http.Transport{Dial: dialer.Dial}
-				client = &http.Client{Timeout: time.Second * time.Duration(conf.Args.Network.HTTPTimeout),
-					Transport: httpTransport}
-			case "http":
-				//http proxy
-				proxyURL, e := url.Parse(proxyAddr)
-				if e != nil {
-					log.Printf("invalid proxy: %s, %+v", proxyAddr, e)
-					return nil, errors.WithStack(e)
-				}
-				// setup a http client
-				client = &http.Client{
-					Timeout:   time.Second * time.Duration(conf.Args.Network.HTTPTimeout),
-					Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
-			default:
-				return nil, errors.Errorf("unsupported proxy: %+v", prx)
+			if client, e = httpClient(prx); e != nil {
+				return nil, errors.WithStack(e)
 			}
 		}
 
@@ -506,4 +455,41 @@ func DownloadUsingHeaders(link, file string, headers map[string]string) (e error
 	log.Printf("%d bytes downloaded. file saved to %s.", n, file)
 
 	return nil
+}
+
+func httpClient(px *Proxy) (client *http.Client, e error) {
+	if px == nil {
+		//no proxy used
+		client = &http.Client{Timeout: time.Second * time.Duration(conf.Args.Network.HTTPTimeout)}
+	} else {
+		switch px.Type {
+		// case "socks5":
+		// 	// create a socks5 dialer
+		// 	dialer, e := proxy.SOCKS5("tcp", fmt.Sprintf("%s:%s", px.Host, px.Port), nil, proxy.Direct)
+		// 	if e != nil {
+		// 		log.Warnf("can't create socks5 proxy dialer: %+v", e)
+		// 		return nil, errors.WithStack(e)
+		// 	}
+		// 	httpTransport := &http.Transport{
+		// 		// Dial: dialer.Dial,
+		// 		DialContext: dialer.(*socks.Dialer).DialContext,
+		// 	}
+		// 	client = &http.Client{Timeout: time.Second * time.Duration(conf.Args.Network.HTTPTimeout),
+		// 		Transport: httpTransport}
+		case "http", "socks5":
+			//http proxy
+			proxyAddr := fmt.Sprintf("%s://%s:%s", px.Type, px.Host, px.Port)
+			proxyURL, e := url.Parse(proxyAddr)
+			if e != nil {
+				log.Warnf("invalid proxy: %s, %+v", proxyAddr, e)
+				return nil, errors.WithStack(e)
+			}
+			client = &http.Client{
+				Timeout:   time.Second * time.Duration(conf.Args.Network.HTTPTimeout),
+				Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
+		default:
+			return nil, errors.Errorf("unsupported proxy: %+v", px)
+		}
+	}
+	return
 }
