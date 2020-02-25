@@ -1051,7 +1051,7 @@ func binsertV2(trdat *model.TradeData, lklid int) (c int) {
 		for ; rt < retry; rt++ {
 			_, e = dbmap.Exec(fmt.Sprintf("delete from %s where code = ? and klid > ?", table), code, lklid)
 			if e != nil {
-				fmt.Println(e)
+				log.Error(e)
 				if strings.Contains(e.Error(), "Deadlock") {
 					continue
 				} else {
@@ -1112,7 +1112,7 @@ func insertMinibatchV2(table string, cols []string, v reflect.Value) (c int) {
 	for ; rt < retry; rt++ {
 		_, e = dbmap.Exec(stmt, valueArgs...)
 		if e != nil {
-			fmt.Println(e)
+			log.Error(e)
 			if strings.Contains(e.Error(), "Deadlock") {
 				continue
 			} else {
@@ -1358,7 +1358,7 @@ func UpdateValidateKlineParams() (e error) {
 	for rt := 0; rt < conf.Args.DeadlockRetry; rt++ {
 		_, e = dbmap.Exec(stmt, "Validate Kline", "DataSource", conf.Args.DataSource.Validate.Source, d, t)
 		if e != nil {
-			fmt.Println(e)
+			log.Error(e)
 			if strings.Contains(e.Error(), "Deadlock") {
 				continue
 			} else {

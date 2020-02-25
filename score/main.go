@@ -42,7 +42,7 @@ type Profile struct {
 func (p *Profile) String() string {
 	j, e := json.Marshal(p)
 	if e != nil {
-		fmt.Println(e)
+		log.Error(e)
 	}
 	return fmt.Sprintf("%v", string(j))
 }
@@ -82,7 +82,7 @@ func (it *Item) AddMark(m mark) {
 func (it *Item) String() string {
 	j, e := json.Marshal(it)
 	if e != nil {
-		fmt.Println(e)
+		log.Error(e)
 	}
 	return fmt.Sprintf("%v", string(j))
 }

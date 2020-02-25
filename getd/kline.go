@@ -763,7 +763,7 @@ func binsert(quotes []*model.Quote, table string, lklid int) (c int) {
 	for ; rt < retry; rt++ {
 		_, e = dbmap.Exec(fmt.Sprintf("delete from %s where code = ? and klid > ?", table), code, lklid)
 		if e != nil {
-			fmt.Println(e)
+			log.Error(e)
 			if strings.Contains(e.Error(), "Deadlock") {
 				continue
 			} else {
@@ -930,7 +930,7 @@ func insertMinibatch(quotes []*model.Quote, table string) (c int) {
 	for ; rt < retry; rt++ {
 		_, e = dbmap.Exec(stmt, valueArgs...)
 		if e != nil {
-			fmt.Println(e)
+			log.Error(e)
 			if strings.Contains(e.Error(), "Deadlock") {
 				continue
 			} else {

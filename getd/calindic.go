@@ -301,7 +301,7 @@ func binsIndc(indc []*model.Indicator, table string) (c int) {
 		stmt := fmt.Sprintf("delete from %s where code = ? and klid >= ?", table)
 		_, e = dbmap.Exec(stmt, code, sklid)
 		if e != nil {
-			fmt.Println(e)
+			log.Error(e)
 			if strings.Contains(e.Error(), "Deadlock") {
 				continue
 			} else {
@@ -396,7 +396,7 @@ func insertIndicMiniBatch(indc []*model.Indicator, table string) (c int) {
 	for ; rt < retry; rt++ {
 		_, e = dbmap.Exec(stmt, valueArgs...)
 		if e != nil {
-			fmt.Println(e)
+			log.Error(e)
 			if strings.Contains(e.Error(), "Deadlock") {
 				continue
 			} else {

@@ -337,7 +337,7 @@ func saveXCorlTrn(xs ...*model.XCorlTrn) (err error) {
 	for ; rt < retry; rt++ {
 		_, err := dbmap.Exec(stmt, valueArgs...)
 		if err != nil {
-			fmt.Println(err)
+			log.Error(err)
 			if strings.Contains(err.Error(), "Deadlock") {
 				continue
 			} else {

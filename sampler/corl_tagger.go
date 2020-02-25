@@ -36,11 +36,16 @@ func TagCorlTrn(table CorlTab, flag string, erase bool) (e error) {
 	log.Printf("tagging %v for dataset %s...", table, flag)
 	startno := 0
 	vflag := ""
+	bsize := 0
 	switch flag {
 	case TrainFlag:
 		vflag = "TR"
+		bsize = conf.Args.Sampler.TrainSetBatchSize
 	case TestFlag:
 		vflag = "TS"
+		bsize = conf.Args.Sampler.TestSetBatchSize
+	default:
+		log.Panicf("unsupported flag: %s", flag)
 	}
 	if erase {
 		// clear already tagged data
@@ -77,10 +82,6 @@ func TagCorlTrn(table CorlTab, flag string, erase bool) (e error) {
 	}
 	total := len(untagged)
 	log.Printf("total of untagged records: %d", total)
-	bsize := conf.Args.Sampler.TestSetBatchSize
-	if flag == TrainFlag {
-		bsize = conf.Args.Sampler.TrainSetBatchSize
-	}
 	segment := int(float64(total) / float64(bsize))
 	rem := int(total) % bsize
 	//take care of remainder
@@ -93,9 +94,10 @@ func TagCorlTrn(table CorlTab, flag string, erase bool) (e error) {
 	}
 	offset := 0
 	var batches int
-	if flag == TestFlag {
+	switch flag {
+	case TestFlag:
 		batches = conf.Args.Sampler.TestSetGroups
-	} else {
+	case TrainFlag:
 		batches = segment
 	}
 	grps := make([][]int, batches)

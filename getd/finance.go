@@ -410,7 +410,7 @@ func saveXdxrs(xdxrs []*model.Xdxr) {
 	for ; rt < retry; rt++ {
 		_, e := dbmap.Exec(stmt, valueArgs...)
 		if e != nil {
-			fmt.Println(e)
+			log.Error(e)
 			if strings.Contains(e.Error(), "Deadlock") {
 				continue
 			} else {
@@ -730,7 +730,7 @@ func saveFinPredict(code string, fpMap map[string]*model.FinPredict) bool {
 		// clean stale data before insert
 		_, e := dbmap.Exec("delete from fin_predict where code = ?", code)
 		if e != nil {
-			fmt.Println(e)
+			log.Error(e)
 			if strings.Contains(e.Error(), "Deadlock") {
 				continue
 			} else {
@@ -774,7 +774,7 @@ func saveFinPredict(code string, fpMap map[string]*model.FinPredict) bool {
 	for ; rt < retry; rt++ {
 		_, e := dbmap.Exec(stmt, valueArgs...)
 		if e != nil {
-			fmt.Println(e)
+			log.Error(e)
 			if strings.Contains(e.Error(), "Deadlock") {
 				continue
 			} else {

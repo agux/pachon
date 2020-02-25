@@ -3448,3 +3448,24 @@ CREATE TABLE `secu`.`code_map` (
   PRIMARY KEY (`id`),
   UNIQUE INDEX `id_UNIQUE` (`id` ASC) VISIBLE,
   UNIQUE INDEX `code_map_UNIQUE` (`f_src` ASC, `f_code` ASC, `t_src` ASC, `t_code` ASC) VISIBLE);
+
+CREATE TABLE `secu`.`wcc_trn` (
+  `uuid` int NOT NULL AUTO_INCREMENT,
+  `code` varchar(8) NOT NULL,
+  `date` varchar(10) NOT NULL,
+  `klid` int NOT NULL,
+  `rcode` varchar(8) NOT NULL,
+  `corl` double DEFAULT NULL,
+  `corl_stz` double DEFAULT NULL COMMENT 'standardized correlation',
+  `min_diff` double DEFAULT NULL,
+  `max_diff` double DEFAULT NULL,
+  `flag` varchar(2) DEFAULT NULL,
+  `bno` int DEFAULT NULL,
+  `udate` varchar(10) DEFAULT NULL,
+  `utime` varchar(8) DEFAULT NULL,
+  PRIMARY KEY (`uuid`),
+  KEY `wcc_trn_idx_02` (`code`,`klid`),
+  KEY `wcc_trn_idx_01` (`flag`,`bno`)
+) ENGINE=InnoDB AUTO_INCREMENT=210140890 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED
+/*!50100 PARTITION BY LINEAR HASH (`uuid`)
+PARTITIONS 1024 */;

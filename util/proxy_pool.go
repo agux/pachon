@@ -468,7 +468,7 @@ func (x *Proxy) String() string {
 func toJSONString(i interface{}) string {
 	j, e := json.Marshal(i)
 	if e != nil {
-		fmt.Println(e)
+		log.Error(e)
 	}
 	return fmt.Sprintf("%v", string(j))
 }

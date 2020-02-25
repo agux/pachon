@@ -1352,7 +1352,7 @@ func (kfv *KDJfdView) Add(k, d, j float64) {
 func (v *KDJfdView) String() string {
 	j, e := json.Marshal(v)
 	if e != nil {
-		fmt.Println(e)
+		log.Error(e)
 	}
 	return fmt.Sprintf("%v", string(j))
 }
@@ -2085,7 +2085,7 @@ func (x *XqSharesChg) String() string {
 func toJSONString(i interface{}) string {
 	j, e := json.Marshal(i)
 	if e != nil {
-		fmt.Println(e)
+		log.Error(e)
 	}
 	return fmt.Sprintf("%v", string(j))
 }
