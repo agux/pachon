@@ -1,6 +1,7 @@
 package score
 
 import (
+	"database/sql"
 	"fmt"
 	"math"
 	"reflect"
@@ -796,7 +797,7 @@ func scoreKdjRemote(items []*Item) (e error) {
 		var stat *model.KDJVStat
 		e := dbmap.SelectOne(&stat, "select * from kdjv_stats where code = ?", item.Code)
 		if e != nil {
-			if "sql: no rows in result set" != e.Error() {
+			if sql.ErrNoRows != e {
 				log.Panicf("%s failed to query kdjv stats\n%+v", item.Code, e)
 			}
 		} else {
@@ -869,7 +870,7 @@ func scoreKdjLocal(item *Item) {
 	var stat *model.KDJVStat
 	e := dbmap.SelectOne(&stat, "select * from kdjv_stats where code = ?", item.Code)
 	if e != nil {
-		if "sql: no rows in result set" != e.Error() {
+		if sql.ErrNoRows != e {
 			log.Panicf("%s failed to query kdjv stats\n%+v", item.Code, e)
 		}
 	} else {

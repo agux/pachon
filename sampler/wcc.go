@@ -48,9 +48,11 @@ var (
 	volLock           sync.RWMutex
 	ftQryInit         sync.Once
 	statsQryInit      sync.Once
+	indexCodeInit     sync.Once
 	qryKline, qryDate string
 	wccStats          *model.FsStats
 	gcsClient         *util.GCSClient
+	indexCodes        map[string]bool
 )
 
 type wccTrnDBJob struct {
@@ -98,7 +100,46 @@ type impJob struct {
 	idx int64
 }
 
-//PcalWcc pre-calculates future wcc value using non-reinstated daily kline data and updates stockrel table.
+func getIndexCodes() map[string]bool {
+	if indexCodes != nil {
+		return indexCodes
+	}
+	op := func(c int) (e error) {
+		log.Printf("#%d querying index codes ...", c)
+		codes := make([]string, 0, 8)
+		qry := `select code from idxlst where src = ?`
+		if _, e = dbmap.Select(&codes, qry, conf.Args.DataSource.Index); e != nil {
+			if sql.ErrNoRows != e {
+				log.Errorf(`failed to query idxlst: %+v`, e)
+				return repeat.HintTemporary(e)
+			}
+			return nil
+		}
+		indexCodes = make(map[string]bool)
+		for _, c := range codes {
+			indexCodes[c] = true
+		}
+		return nil
+	}
+	indexCodeInit.Do(
+		func() {
+			e := repeat.Repeat(
+				repeat.FnWithCounter(op),
+				repeat.StopOnSuccess(),
+				repeat.LimitMaxTries(conf.Args.DefaultRetry),
+				repeat.WithDelay(
+					repeat.FullJitterBackoff(500*time.Millisecond).WithMaxDelay(15*time.Second).Set(),
+				),
+			)
+			if e != nil {
+				log.Panicf("give up querying wcc stats: %+v", e)
+			}
+		})
+	return indexCodes
+}
+
+//PcalWcc pre-calculates future wcc value using backward-reinstated daily kline & index data,
+// and updates stockrel table.
 func PcalWcc(expInferFile, upload, nocache, overwrite bool, localPath, rbase string) {
 	log.Println("starting wcc pre-calculation...")
 	jobs, e := getPcalJobs()
@@ -118,7 +159,7 @@ func PcalWcc(expInferFile, upload, nocache, overwrite bool, localPath, rbase str
 	dbwg := new(sync.WaitGroup)
 	dbwg.Add(1)
 	go collectStockRels(dbwg, dbch)
-	//drop uploaded signal
+	//drain uploaded signal
 	if expcho != nil {
 		go func() {
 			for range expcho {
@@ -846,7 +887,6 @@ func pcalWccWorker(pcch <-chan *pcaljob, expch chan<- *ExpJob, dbch chan<- *stoc
 		if e != nil || len(rcodes) < 2 {
 			continue
 		}
-		rcodeSize := sql.NullInt64{Int64: int64(len(rcodes)), Valid: true}
 		log.Printf("%s@%d has %d eligible reference codes for inference", code, klid, len(rcodes))
 		if expch != nil {
 			expch <- &ExpJob{
@@ -857,14 +897,15 @@ func pcalWccWorker(pcch <-chan *pcaljob, expch chan<- *ExpJob, dbch chan<- *stoc
 			}
 		}
 		lrs, reflrs, e := getKlines4WccPreCalculation(code, klid, rcodes...)
+		if e != nil {
+			continue
+		}
 		var minc, maxc sql.NullString
 		minv := sql.NullFloat64{Float64: math.Inf(0)}
 		maxv := sql.NullFloat64{Float64: math.Inf(-1)}
-		var rcodeSizeHs sql.NullInt64
-		if len(lrs) > 0 && len(reflrs) > 0 && e == nil {
+		if len(lrs) > 0 && len(reflrs) > 0 {
 			//when different rcodes have equivalent corl, the first rcode win
 			log.Printf("%s@%d has %d eligible reference codes for pre-calculation", code, klid, len(reflrs))
-			rcodeSizeHs = sql.NullInt64{Int64: int64(len(reflrs)), Valid: true}
 			for rc, rlrs := range reflrs {
 				minDiff, maxDiff, e := warpingCorl(lrs, rlrs)
 				if e != nil {
@@ -891,16 +932,10 @@ func pcalWccWorker(pcch <-chan *pcaljob, expch chan<- *ExpJob, dbch chan<- *stoc
 					maxv = sql.NullFloat64{Float64: corl, Valid: true}
 					maxc = sql.NullString{String: rc, Valid: true}
 				}
-				// log.Printf("%s@%d calculating wcc with reference %s, len(rlrs):%d, minDiff:%f, maxDiff:%f, "+
-				// 	"corl:%f, minv:%f, maxv:%f, minc:%s, maxc:%s, e:%+v",
-				// 	code, klid, rc, len(rlrs), minDiff, maxDiff, corl, minv.Float64, maxv.Float64,
-				// 	minc.String, maxc.String, e)
 			}
-		} else if e != nil {
-			continue
 		}
 		log.Printf("%s@%d: {pcode:%s, pos:%.5f, ncode:%s, neg:%.5f}  / %d",
-			code, klid, maxc.String, maxv.Float64, minc.String, minv.Float64, rcodeSizeHs.Int64)
+			code, klid, maxc.String, maxv.Float64, minc.String, minv.Float64, len(reflrs))
 		ud, ut := util.TimeStr()
 		dbch <- &stockrelDBJob{
 			code: code,
@@ -912,8 +947,8 @@ func pcalWccWorker(pcch <-chan *pcaljob, expch chan<- *ExpJob, dbch chan<- *stoc
 				RcodeNegHs:  minc,
 				PosCorlHs:   maxv,
 				NegCorlHs:   minv,
-				RcodeSize:   rcodeSize,
-				RcodeSizeHs: rcodeSizeHs,
+				RcodeSize:   sql.NullInt64{Int64: int64(len(rcodes)), Valid: true},
+				RcodeSizeHs: sql.NullInt64{Int64: int64(len(reflrs)), Valid: true},
 				Udate:       sql.NullString{String: ud, Valid: true},
 				Utime:       sql.NullString{String: ut, Valid: true},
 			},
@@ -955,78 +990,41 @@ func getWccFeatStats() (stats *model.FsStats) {
 	return wccStats
 }
 
+func splitRcodes(rcodes []string) (rcStock, rcIndex []string) {
+	idxCodes := getIndexCodes()
+	for _, c := range rcodes {
+		if _, ok := idxCodes[c]; ok {
+			rcIndex = append(rcIndex, c)
+		} else {
+			rcStock = append(rcStock, c)
+		}
+	}
+	return
+}
+
 func getKlines4WccPreCalculation(code string, klid int, rcodes ...string) (lrs []float64, reflrs map[string][]float64, e error) {
 	span := conf.Args.Sampler.CorlSpan
 	shift := conf.Args.Sampler.WccMaxShift
 	start := klid - shift + 1
 	end := klid + span
-	qryKlid := " and klid >= ? and klid <= ?"
-	op := func(c int) error {
-		lrs = make([]float64, 0, span)
-		reflrs = make(map[string][]float64)
-		maxKlid, e := dbmap.SelectInt(`select max(klid) from kline_d_b where code = ?`, code)
-		if e != nil {
-			if sql.ErrNoRows != e {
-				log.Printf(`#%d %s failed to query max klid, %+v`, c, code, e)
-				return repeat.HintTemporary(e)
-			}
-			log.Printf(`%s no data in kline_d_b`, code)
-			return repeat.HintStop(e)
-		}
-		maxk := int(maxKlid)
-
-		if maxk < end {
-			return repeat.HintStop(fmt.Errorf("%s ineligible for wcc pre-calculation: %d < %d", code, maxk, klid+span))
-		}
-		query, e := global.Dot.Raw("QUERY_BWR_DAILY")
-		if e != nil {
-			log.Printf(`#%d %s@%d-%d failed to load sql QUERY_BWR_DAILY, %+v`, c, code, start, end, e)
-			return repeat.HintTemporary(e)
-		}
-		query = fmt.Sprintf(query, qryKlid)
-		var klhist []*model.Quote
-		_, e = dbmap.Select(&klhist, query, code, start, end)
-		if e != nil {
-			if sql.ErrNoRows != e {
-				log.Printf(`#%d %s@%d-%d failed to load kline hist data: %+v`, c, code, start, end, e)
-				return repeat.HintTemporary(e)
-			}
-			log.Printf(`%s@%d-%d no data in kline_d_b`, code, start, end)
-			return repeat.HintStop(e)
-		}
-		if len(klhist) < span {
-			e = fmt.Errorf("%s [severe]: some kline data between %d(exclusive) and %d may be missing. skipping",
-				code, start, end)
-			return repeat.HintStop(e)
-		}
-		// search for reference codes by matching dates
+	rcStock, rcIndex := splitRcodes(rcodes)
+	getRefLRS := func(table string, dates, refcodes []string) (e error) {
 		var args []interface{}
-		var dates []string
-		for _, rc := range rcodes {
+		for _, rc := range refcodes {
 			args = append(args, rc)
 		}
-		for i, k := range klhist {
-			if i >= shift {
-				if k.Lr.Valid {
-					lrs = append(lrs, k.Lr.Float64)
-				} else {
-					e = fmt.Errorf(`%s [severe] reference %s@%d %s log return is null. skipping`, code, k.Code, k.Klid, k.Date)
-					repeat.HintStop(e)
-				}
-			}
-			if i < len(klhist)-1 {
-				dates = append(dates, k.Date)
-				args = append(args, k.Date)
-			}
+		for _, d := range dates {
+			args = append(args, d)
 		}
+
 		args = append(args, len(dates))
-		qry := fmt.Sprintf(`select code from kline_d_b where code in (?%s) and date in (?%s) `+
-			`group by code having count(*) = ?`, strings.Repeat(",?", len(rcodes)-1), strings.Repeat(",?", len(klhist)-2))
+		qry := fmt.Sprintf(`select code from %s where code in (?%s) and date in (?%s) `+
+			`group by code having count(*) = ?`, table, strings.Repeat(",?", len(refcodes)-1), strings.Repeat(",?", len(dates)-1))
 		var frcodes []string
 		_, e = dbmap.Select(&frcodes, qry, args...)
 		if e != nil {
 			if sql.ErrNoRows != e {
-				log.Printf(`#%d %s@%d-%d failed to query reference codes: %+v`, c, code, start, end, e)
+				log.Printf(`%s@%d-%d failed to query reference codes: %+v`, code, start, end, e)
 				return repeat.HintTemporary(e)
 			}
 			log.Printf(`%s@%d-%d no matching reference code`, code, start, end)
@@ -1047,21 +1045,21 @@ func getKlines4WccPreCalculation(code string, klid int, rcodes ...string) (lrs [
 				t.code,
 				t.klid,
 				t.date,
-				t.lr
+				t.close
 			FROM
-				kline_d_b t
+				%s t
 			WHERE
 				t.code = ? AND t.date IN (?%s)
 			ORDER BY code , klid
-		`, strings.Repeat(",?", len(args)-2))
+		`, table, strings.Repeat(",?", len(args)-2))
 	LOOPRCODES:
 		for _, rc := range frcodes {
-			args[0] = rc //replace code argument
-			var rhist []*model.Quote
+			args[0] = rc //fill in code argument
+			var rhist []*model.TradeDataLogRtn
 			_, e = dbmap.Select(&rhist, qry, args...)
 			if e != nil {
 				if sql.ErrNoRows != e {
-					log.Printf(`#%d %s@%d-%d failed to load reference kline of %s: %+v`, c, code, start, end, rc, e)
+					log.Printf(`%s@%d-%d failed to load reference kline log return of %s: %+v`, code, start, end, rc, e)
 					return repeat.HintTemporary(e)
 				}
 				log.Printf(`%s reference code %s has no available data between %s and %s, skipping this one`,
@@ -1075,14 +1073,77 @@ func getKlines4WccPreCalculation(code string, klid int, rcodes ...string) (lrs [
 			}
 			rlrs := make([]float64, len(rhist))
 			for i, k := range rhist {
-				if k.Lr.Valid {
-					rlrs[i] = k.Lr.Float64
+				if k.Close.Valid {
+					rlrs[i] = k.Close.Float64
 				} else {
 					log.Printf(`%s [severe] reference %s@%d %s log return is null. skipping`, code, k.Code, k.Klid, k.Date)
 					continue LOOPRCODES
 				}
 			}
 			reflrs[rc] = rlrs
+		}
+		return
+	}
+	op := func(c int) error {
+		lrs = make([]float64, 0, span)
+		reflrs = make(map[string][]float64)
+		maxKlid, e := dbmap.SelectInt(`select max(klid) from kline_d_b where code = ?`, code)
+		if e != nil {
+			if sql.ErrNoRows != e {
+				log.Printf(`#%d %s failed to query max klid, %+v`, c, code, e)
+				return repeat.HintTemporary(e)
+			}
+			log.Printf(`%s no data in kline_d_b`, code)
+			return repeat.HintStop(e)
+		}
+		maxk := int(maxKlid)
+		if maxk < end {
+			return repeat.HintStop(fmt.Errorf("%s ineligible for wcc pre-calculation: %d < %d", code, maxk, klid+span))
+		}
+		query := `SELECT code, date, klid, close ` +
+			`FROM kline_d_b_lr ` +
+			`WHERE code = ? and klid between ? and ? ` +
+			`ORDER BY klid`
+		var klhist []*model.TradeDataLogRtn
+		_, e = dbmap.Select(&klhist, query, code, start, end)
+		if e != nil {
+			if sql.ErrNoRows != e {
+				log.Printf(`#%d %s@%d-%d failed to load kline log return hist data: %+v`, c, code, start, end, e)
+				return repeat.HintTemporary(e)
+			}
+			log.Printf(`%s@%d-%d no data in kline_d_b_lr`, code, start, end)
+			return repeat.HintStop(e)
+		}
+		if len(klhist) < span {
+			e = fmt.Errorf(
+				"%s [severe]: some kline log return data between %d(exclusive) and %d may be missing. skipping",
+				code, start, end)
+			return repeat.HintStop(e)
+		}
+		// search for reference codes by matching dates
+		var dates []string
+		for i, k := range klhist {
+			if i >= shift {
+				if k.Close.Valid {
+					lrs = append(lrs, k.Close.Float64)
+				} else {
+					e = fmt.Errorf(`%s [severe] reference %s@%d %s log return is null. skipping`, code, k.Code, k.Klid, k.Date)
+					repeat.HintStop(e)
+				}
+			}
+			if i < len(klhist)-1 {
+				dates = append(dates, k.Date)
+			}
+		}
+		//populate reflrs for stock
+		if e = getRefLRS("kline_d_b_lr", dates, rcStock); e != nil {
+			return errors.Wrapf(e, "#%d", c)
+		}
+		//populate reflrs for index
+		if len(rcIndex) > 0 {
+			if e = getRefLRS("index_d_n_lr", dates, rcIndex); e != nil {
+				return errors.Wrapf(e, "#%d", c)
+			}
 		}
 		return nil
 	}
@@ -1104,58 +1165,67 @@ func getKlines4WccPreCalculation(code string, klid int, rcodes ...string) (lrs [
 }
 
 //getRcodes4WccInfer fetches eligible reference codes based on prior data.
-//the returned rcodes array may have 0 elements if no eligible data can be found.
+//the returned rcodes array includes index. And it may have 0 elements if no eligible data can be found.
 func getRcodes4WccInfer(code string, klid int) (rcodes []string, e error) {
 	shift := conf.Args.Sampler.CorlTimeShift
 	steps := conf.Args.Sampler.CorlTimeSteps
 	start := klid - steps - shift + 1
-	qryKlid := " and klid >= ? and klid <= ?"
-	op := func(c int) error {
-		log.Printf("#%d getting rcodes for %s@%d", c, code, klid)
+	getRcodes := func(table string, klhist []*model.TradeDataBasic) (rcodes []string, e error) {
+		// search for reference codes by matching dates
 		rcodes = make([]string, 0, 64)
-		query, e := global.Dot.Raw("QUERY_BWR_DAILY")
-		if e != nil {
-			log.Printf(`#%d %s@%d failed to load sql QUERY_BWR_DAILY, %+v`, c, code, klid, e)
-			return repeat.HintTemporary(e)
+		args := []interface{}{code}
+		for _, k := range klhist {
+			args = append(args, k.Date)
 		}
-		query = fmt.Sprintf(query, qryKlid)
-		var klhist []*model.Quote
-		_, e = dbmap.Select(&klhist, query, code, start, klid)
+		args = append(args, len(klhist))
+		qry := fmt.Sprintf(`select code from %s where code <> ? and date in (%s%s) `+
+			`group by code having count(*) = ?`, table, "?", strings.Repeat(",?", len(klhist)-1))
+		_, e = dbmap.Select(&rcodes, qry, args...)
 		if e != nil {
 			if sql.ErrNoRows != e {
-				log.Printf(`#%d %s@%d-%d failed to load kline hist data: %+v`, c, code, start, klid, e)
+				log.Errorf(`%s@%d-%d failed to query reference codes, %+v`, code, start, klid, e)
+				return rcodes, repeat.HintTemporary(e)
+			}
+			log.Warnf(`%s@%d-%d no matching reference code`, code, start, klid)
+			return rcodes, repeat.HintStop(e)
+		}
+		if len(rcodes) < 2 {
+			log.Warnf(`%s insufficient reference code between %d and %d: %d`,
+				code, start, klid, len(rcodes))
+			return rcodes, repeat.HintStop(e)
+		}
+		return
+	}
+	op := func(c int) error {
+		log.Printf("#%d getting rcodes for %s@%d", c, code, klid)
+		query := `SELECT code, date FROM kline_d_b ` +
+			`WHERE code = ? and klid between ? and ? ` +
+			`ORDER BY klid`
+		var klhist []*model.TradeDataBasic
+		_, e := dbmap.Select(&klhist, query, code, start, klid)
+		if e != nil {
+			if sql.ErrNoRows != e {
+				log.Errorf(`#%d %s@%d-%d failed to load kline hist data: %+v`, c, code, start, klid, e)
 				return repeat.HintTemporary(e)
 			}
 			log.Printf(`%s@%d-%d no data in kline_d_b`, code, start, klid)
 			return repeat.HintStop(e)
 		}
 		if len(klhist) < steps+shift {
-			e = fmt.Errorf("%s [severe]: some kline data between %d and %d may be missing. skipping",
+			e = errors.Errorf("%s [severe]: some kline data between %d and %d may be missing. skipping",
 				code, start, klid)
 			return repeat.HintStop(e)
 		}
-		// search for reference codes by matching dates
-		args := []interface{}{code}
-		for _, k := range klhist {
-			args = append(args, k.Date)
+		// search for reference codes by matching dates in kline table
+		if rcodes, e = getRcodes("kline_d_b", klhist); e != nil {
+			return e
 		}
-		args = append(args, len(klhist))
-		qry := fmt.Sprintf(`select code from kline_d_b where code <> ? and date in (%s%s) `+
-			`group by code having count(*) = ?`, "?", strings.Repeat(",?", len(klhist)-1))
-		_, e = dbmap.Select(&rcodes, qry, args...)
-		if e != nil {
-			if sql.ErrNoRows != e {
-				log.Printf(`#%d %s@%d-%d failed to query reference codes, %+v`, c, code, start, klid, e)
-				return repeat.HintTemporary(e)
-			}
-			log.Printf(`%s@%d-%d no matching reference code`, code, start, klid)
-			return repeat.HintStop(e)
+		// search for reference codes by matching dates in index table
+		var rcindex []string
+		if rcindex, e = getRcodes("index_d_n", klhist); e != nil {
+			return e
 		}
-		if len(rcodes) < 2 {
-			log.Printf(`%s insufficient reference code between %d and %d: %d`,
-				code, start, klid, len(rcodes))
-			return repeat.HintStop(e)
-		}
+		rcodes = append(rcodes, rcindex...)
 		return nil
 	}
 
@@ -1769,7 +1839,7 @@ func getPcalJobs() (jobs []*pcaljob, e error) {
 				kline_d_b
 			WHERE
 				klid >= ?
-			ORDER BY code , klid) t
+			ORDER BY code, klid) t
 		WHERE
 			(code, klid) NOT IN (SELECT 
 					code, klid

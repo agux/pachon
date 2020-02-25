@@ -217,7 +217,7 @@ func SaveKpts(table string, kpts ...*model.KeyPoint) (err error) {
 			"rgn_rise=values(rgn_rise),score=values(score),sum_fall=values(sum_fall),unit_rise=values(unit_rise),"+
 			"clr=values(clr),rema_lr=values(rema_lr),uuid=values(uuid),udate=values(udate),utime=values(utime)",
 			table, strings.Join(valueStrings, ","))
-		_, err := global.Dbmap.Exec(stmt, valueArgs...)
+		_, err := dbmap.Exec(stmt, valueArgs...)
 		if err != nil {
 			fmt.Println(err)
 			if strings.Contains(err.Error(), "Deadlock") {

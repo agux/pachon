@@ -408,7 +408,7 @@ func saveXdxrs(xdxrs []*model.Xdxr) {
 		"shares_base=values(shares_base),end_trddate=values(end_trddate),udate=values(udate),utime=values(utime)",
 		strings.Join(valueStrings, ","))
 	for ; rt < retry; rt++ {
-		_, e := global.Dbmap.Exec(stmt, valueArgs...)
+		_, e := dbmap.Exec(stmt, valueArgs...)
 		if e != nil {
 			fmt.Println(e)
 			if strings.Contains(e.Error(), "Deadlock") {
@@ -772,7 +772,7 @@ func saveFinPredict(code string, fpMap map[string]*model.FinPredict) bool {
 		"np_ind_avg=values(np_ind_avg),udate=values(udate),utime=values(utime)",
 		strings.Join(valueStrings, ","))
 	for ; rt < retry; rt++ {
-		_, e := global.Dbmap.Exec(stmt, valueArgs...)
+		_, e := dbmap.Exec(stmt, valueArgs...)
 		if e != nil {
 			fmt.Println(e)
 			if strings.Contains(e.Error(), "Deadlock") {
@@ -926,7 +926,7 @@ func doParseFinPage(url string, code string) (ok, retry bool) {
 			"cons_quick_ratio=values(cons_quick_ratio),equity_ratio=values(equity_ratio),"+
 			"udate=values(udate),utime=values(utime)",
 			strings.Join(valueStrings, ","))
-		_, err := global.Dbmap.Exec(stmt, valueArgs...)
+		_, err := dbmap.Exec(stmt, valueArgs...)
 		util.CheckErr(err, code+": failed to bulk update finance")
 	}
 	return true, false
@@ -1002,11 +1002,11 @@ func findByYear(fins []*model.Finance, year string) *model.Finance {
 
 // checks whether the historical kline data is yet to be forward-reinstatement
 func latestUFRXdxr(code string) (x *model.Xdxr) {
-	sql, e := global.Dot.Raw("latestUFRXdxr")
+	qry, e := global.Dot.Raw("latestUFRXdxr")
 	util.CheckErr(e, "unable to get sql: latestUFRXdxr")
-	e = dbmap.SelectOne(&x, sql, code, code)
+	e = dbmap.SelectOne(&x, qry, code, code)
 	if e != nil {
-		if "sql: no rows in result set" == e.Error() {
+		if sql.ErrNoRows == e {
 			return nil
 		}
 		log.Panicln("failed to run sql", e)

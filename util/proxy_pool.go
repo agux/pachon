@@ -12,7 +12,6 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/agux/pachon/conf"
-	"github.com/agux/pachon/global"
 	"github.com/pkg/errors"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
@@ -82,7 +81,7 @@ func PickProxy() (proxy *Proxy, e error) {
 			proxy_list
 		WHERE
 			score >= ?`
-	_, e = global.Dbmap.Select(&proxyList, query, conf.Args.Network.RotateProxyScoreThreshold)
+	_, e = dbmap.Select(&proxyList, query, conf.Args.Network.RotateProxyScoreThreshold)
 	if e != nil {
 		log.Println("failed to query proxy server from database", e)
 		return proxy, errors.WithStack(e)
@@ -99,10 +98,10 @@ func UpdateProxyScore(p *Proxy, success bool) {
 	}
 	var e error
 	if success {
-		_, e = global.Dbmap.Exec(`update proxy_list set suc = suc + 1, score = suc/(suc+fail)*100 `+
+		_, e = dbmap.Exec(`update proxy_list set suc = suc + 1, score = suc/(suc+fail)*100 `+
 			`where host = ? and port = ?`, p.Host, p.Port)
 	} else {
-		_, e = global.Dbmap.Exec(`update proxy_list set fail = fail + 1, score = suc/(suc+fail)*100 `+
+		_, e = dbmap.Exec(`update proxy_list set fail = fail + 1, score = suc/(suc+fail)*100 `+
 			`where host = ? and port = ?`, p.Host, p.Port)
 	}
 	if e != nil {

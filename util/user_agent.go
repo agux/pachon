@@ -3,6 +3,7 @@ package util
 import (
 	"archive/tar"
 	"compress/gzip"
+	"database/sql"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -85,9 +86,9 @@ func PickUserAgent() (ua string, e error) {
 }
 
 func loadUserAgents() (agents []*UserAgent) {
-	_, e := global.Dbmap.Select(&agents, "select * from user_agents where hardware_type = ? order by updated_at desc", "computer")
+	_, e := dbmap.Select(&agents, "select * from user_agents where hardware_type = ? order by updated_at desc", "computer")
 	if e != nil {
-		if "sql: no rows in result set" != e.Error() {
+		if sql.ErrNoRows != e {
 			log.Panicln("failed to run sql", e)
 		}
 	}
@@ -136,7 +137,7 @@ func mergeAgents(agents []*UserAgent) (e error) {
 	stmt := fmt.Sprintf("INSERT INTO user_agents (%s) VALUES %s on duplicate key update %s",
 		strings.Join(fields, ","), strings.Join(valueStrings, ","), strings.Join(updFieldStr, ","))
 	for ; rt < retry; rt++ {
-		_, e = global.Dbmap.Exec(stmt, valueArgs...)
+		_, e = dbmap.Exec(stmt, valueArgs...)
 		if e != nil {
 			fmt.Println(e)
 			if strings.Contains(e.Error(), "Deadlock") {

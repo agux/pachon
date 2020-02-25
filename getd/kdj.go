@@ -2,6 +2,7 @@ package getd
 
 import (
 	"bytes"
+	"database/sql"
 	"fmt"
 	"math"
 	"runtime"
@@ -41,39 +42,39 @@ func GetKdjHist(code string, tab model.DBTab, retro int, toDate string) (indcs [
 	}()
 	var (
 		e   error
-		sql string
+		qry string
 	)
 	if toDate == "" {
 		if retro > 0 {
-			sql = fmt.Sprintf("SELECT * FROM (SELECT * FROM %s WHERE code = ? ORDER BY klid DESC LIMIT ?) t"+
+			qry = fmt.Sprintf("SELECT * FROM (SELECT * FROM %s WHERE code = ? ORDER BY klid DESC LIMIT ?) t"+
 				" ORDER BY t.klid", tab)
-			_, e = dbmap.Select(&indcs, sql, code, retro)
+			_, e = dbmap.Select(&indcs, qry, code, retro)
 		} else {
-			sql = fmt.Sprintf("SELECT * FROM %s WHERE code = ? ORDER BY klid", tab)
-			_, e = dbmap.Select(&indcs, sql, code)
+			qry = fmt.Sprintf("SELECT * FROM %s WHERE code = ? ORDER BY klid", tab)
+			_, e = dbmap.Select(&indcs, qry, code)
 		}
 		if e != nil {
-			if "sql: no rows in result set" == e.Error() {
+			if sql.ErrNoRows == e {
 				log.Warnf("%s, %s, %d: %+v", code, tab, retro, e.Error())
 				return
 			}
-			log.Panicf("%s failed to query kdj hist, sql: %s, \n%+v", code, sql, e)
+			log.Panicf("%s failed to query kdj hist, sql: %s, \n%+v", code, qry, e)
 		}
 	} else {
 		if retro > 0 {
-			sql := fmt.Sprintf("SELECT * FROM (SELECT * FROM %s WHERE code = ? and date <= ? ORDER BY klid "+
+			qry := fmt.Sprintf("SELECT * FROM (SELECT * FROM %s WHERE code = ? and date <= ? ORDER BY klid "+
 				"DESC LIMIT ?) t ORDER BY t.klid", tab)
-			_, e = dbmap.Select(&indcs, sql, code, toDate, retro)
+			_, e = dbmap.Select(&indcs, qry, code, toDate, retro)
 		} else {
-			sql := fmt.Sprintf("SELECT * FROM %s WHERE code = ? and date <= ? ORDER BY klid", tab)
-			_, e = dbmap.Select(&indcs, sql, code, toDate)
+			qry := fmt.Sprintf("SELECT * FROM %s WHERE code = ? and date <= ? ORDER BY klid", tab)
+			_, e = dbmap.Select(&indcs, qry, code, toDate)
 		}
 		if e != nil {
-			if "sql: no rows in result set" == e.Error() {
+			if sql.ErrNoRows == e {
 				log.Warnf("%s, %s, %s, %d: %s", code, tab, toDate, retro, e.Error())
 				return
 			}
-			log.Panicf("%s failed to query kdj hist, sql: %s, \n%+v", code, sql, e)
+			log.Panicf("%s failed to query kdj hist, sql: %s, \n%+v", code, qry, e)
 		}
 		if len(indcs) > 0 && indcs[len(indcs)-1].Date == toDate {
 			return
@@ -83,18 +84,18 @@ func GetKdjHist(code string, tab model.DBTab, retro int, toDate string) (indcs [
 			case model.INDICATOR_DAY:
 				return
 			case model.INDICATOR_WEEK:
-				sql = "select * from kline_w_f where code = ? and date < ? order by klid"
+				qry = "select * from kline_w_f where code = ? and date < ? order by klid"
 			case model.INDICATOR_MONTH:
-				sql = "select * from kline_m_f where code = ? and date < ? order by klid"
+				qry = "select * from kline_m_f where code = ? and date < ? order by klid"
 			}
 			var oqs []*model.TradeDataBasic
-			_, e = dbmap.Select(&oqs, sql, code, toDate)
+			_, e = dbmap.Select(&oqs, qry, code, toDate)
 			if e != nil {
-				if "sql: no rows in result set" == e.Error() {
-					log.Warnf("%s, %s, sql: %s, %s: %+v, ", code, tab, toDate, sql, e.Error())
+				if sql.ErrNoRows == e {
+					log.Warnf("%s, %s, sql: %s, %s: %+v, ", code, tab, toDate, qry, e.Error())
 					return
 				}
-				log.Panicf("%s failed to query kline, sql: %s, \n%+v", code, sql, e)
+				log.Panicf("%s failed to query kline, sql: %s, \n%+v", code, qry, e)
 			}
 			qsdy := GetTrDataBtwn(
 				code,
@@ -378,16 +379,16 @@ func GetKdjFeatDatRaw(cytp model.CYTP, buy bool, num int) []*model.KDJfdrView {
 		return fdvs
 	}
 	start := time.Now()
-	sql, e := dot.Raw("KDJ_FEAT_DAT_RAW")
+	qry, e := dot.Raw("KDJ_FEAT_DAT_RAW")
 	util.CheckErr(e, "failed to get KDJ_FEAT_DAT_RAW sql")
-	rows, e := dbmap.Query(sql, string(cytp)+bysl+"%", cytp, bysl, num)
+	rows, e := dbmap.Query(qry, string(cytp)+bysl+"%", cytp, bysl, num)
 	if e != nil {
-		if "sql: no rows in result set" == e.Error() {
+		if sql.ErrNoRows == e {
 			fdvs := make([]*model.KDJfdrView, 0)
 			kdjFdrMap[mk] = fdvs
 			return fdvs
 		}
-		log.Panicf("failed to query kdj feat dat raw, sql:\n%s\n%+v", sql, e)
+		log.Panicf("failed to query kdj feat dat raw, sql:\n%s\n%+v", qry, e)
 	}
 	defer rows.Close()
 	var (
@@ -429,16 +430,16 @@ func GetKdjFeatDat(cytp model.CYTP, buy bool, num int) []*model.KDJfdView {
 		return fdvs
 	}
 	start := time.Now()
-	sql, e := dot.Raw("KDJ_FEAT_DAT")
+	qry, e := dot.Raw("KDJ_FEAT_DAT")
 	util.CheckErr(e, "failed to get KDJ_FEAT_DAT sql")
-	rows, e := dbmap.Query(sql, cytp, bysl, num)
+	rows, e := dbmap.Query(qry, cytp, bysl, num)
 	if e != nil {
-		if "sql: no rows in result set" == e.Error() {
+		if sql.ErrNoRows == e {
 			fdvs := make([]*model.KDJfdView, 0)
 			kdjFdMap[mk] = fdvs
 			return fdvs
 		}
-		log.Panicf("failed to query kdj feat dat, sql:\n%s\n%+v", sql, e)
+		log.Panicf("failed to query kdj feat dat, sql:\n%s\n%+v", qry, e)
 	}
 	defer rows.Close()
 	var (
@@ -478,14 +479,14 @@ func GetAllKdjFeatDat() (map[string][]*model.KDJfdView, int) {
 		return kdjFdMap, count
 	}
 	start := time.Now()
-	sql, e := dot.Raw("KDJ_FEAT_DAT_ALL")
+	qry, e := dot.Raw("KDJ_FEAT_DAT_ALL")
 	util.CheckErr(e, "failed to get KDJ_FEAT_DAT_ALL sql")
-	rows, e := dbmap.Query(sql)
+	rows, e := dbmap.Query(qry)
 	if e != nil {
-		if "sql: no rows in result set" == e.Error() {
+		if sql.ErrNoRows == e {
 			return kdjFdMap, 0
 		}
-		log.Panicf("failed to query kdj feat dat, sql:\n%s\n%+v", sql, e)
+		log.Panicf("failed to query kdj feat dat, sql:\n%s\n%+v", qry, e)
 	}
 	defer rows.Close()
 	var (
@@ -648,7 +649,7 @@ func PruneKdjFeatDat(prec float64, pruneRate float64, resume bool) {
 			"indc_feat_raw group by cytp, bysl, smp_num order by count")
 	}
 	if e != nil {
-		if "sql: no rows in result set" == e.Error() {
+		if sql.ErrNoRows == e {
 			return
 		}
 		log.Panicln("failed to query indc_feat_dat_raw", e)

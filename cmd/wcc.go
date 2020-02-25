@@ -57,7 +57,7 @@ func init() {
 
 var wccCmd = &cobra.Command{
 	Use:   "wcc",
-	Short: "Process Warping Correlation Coefficient sampling.",
+	Short: "Process WCC(Warping Correlation Coefficient) sampling.",
 }
 
 var updateWccCmd = &cobra.Command{

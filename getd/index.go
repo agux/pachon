@@ -1,6 +1,7 @@
 package getd
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -15,18 +16,18 @@ import (
 
 //GetIdxLst loads index data from database.
 func GetIdxLst(code ...string) (idxlst []*model.IdxLst, e error) {
-	sql := "select * from idxlst order by code"
+	qry := "select * from idxlst order by code"
 	if len(code) > 0 {
-		sql = fmt.Sprintf("select * from idxlst where code in (%s) order by code", util.Join(code,
+		qry = fmt.Sprintf("select * from idxlst where code in (%s) order by code", util.Join(code,
 			",", true))
 	}
-	_, e = dbmap.Select(&idxlst, sql)
+	_, e = dbmap.Select(&idxlst, qry)
 	if e != nil {
-		if "sql: no rows in result set" == e.Error() {
+		if sql.ErrNoRows == e {
 			log.Warnf("no data in idxlst table")
 			return idxlst, nil
 		}
-		return idxlst, errors.Wrapf(e, "failed to query idxlst, sql: %s, \n%+v", sql, errors.WithStack(e))
+		return idxlst, errors.Wrapf(e, "failed to query idxlst, sql: %s, \n%+v", qry, errors.WithStack(e))
 	}
 	return
 }

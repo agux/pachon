@@ -92,7 +92,7 @@ func TestNilSlice(t *testing.T) {
 func TestMap(t *testing.T) {
 	m := make(map[int]byte)
 	modMap(m)
-	fmt.Printf("%+v", m)
+	log.Debugf("the map: %+v", m)
 }
 
 func modMap(m map[int]byte) {

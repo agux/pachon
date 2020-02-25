@@ -1133,7 +1133,7 @@ func getLatestTradeDataBasic(code string, src model.DataSource,
 	e := dbmap.SelectOne(&b, fmt.Sprintf("select code, date, klid from %s where code = ? order by klid desc "+
 		"limit 1 offset ?", table), code, offset)
 	if e != nil {
-		if "sql: no rows in result set" == e.Error() {
+		if sql.ErrNoRows == e {
 			return nil
 		}
 		log.Panicln("failed to run sql", e)

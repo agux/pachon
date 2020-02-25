@@ -3,6 +3,7 @@ package getd
 import (
 	"archive/zip"
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -32,10 +33,10 @@ func StocksDb() (allstk []*model.Stock) {
 
 //StocksDbByCode load stocks of specified codes from the basics table.
 func StocksDbByCode(code ...string) (stocks []*model.Stock) {
-	sql := fmt.Sprintf("select * from basics where code in (%s)", util.Join(code, ",", true))
-	_, e := dbmap.Select(&stocks, sql)
+	qry := fmt.Sprintf("select * from basics where code in (%s)", util.Join(code, ",", true))
+	_, e := dbmap.Select(&stocks, qry)
 	if e != nil {
-		if "sql: no rows in result set" == e.Error() {
+		if sql.ErrNoRows == e {
 			return
 		}
 		log.Panicln("failed to run sql", e)

@@ -49,6 +49,7 @@ github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/bitly/go-hostpool v0.1.0 h1:XKmsF6k5el6xHG3WPJ8U0Ku/ye7njX7W81Ng7O2ioR0=
 github.com/bitly/go-hostpool v0.1.0/go.mod h1:4gOCgp6+NZnVqlKyZ/iBZFTAJKembaVENUpMkpg42fw=
+github.com/carusyte/rima v0.0.0-20171206152456-a28b79643985 h1:RCPLi/RFKDOHgvS/g0UzI1V8sUmiXb+TR7yEp/bZK5k=
 github.com/carusyte/rima v0.0.0-20171206152456-a28b79643985/go.mod h1:fjhr7LagAvQIVI5vCKyqe3//UlipvrFddz5uITVVp3s=
 github.com/carusyte/roprox v0.0.0-20200110091438-c3572b84d04f h1:CcHMuz9zEyV2jIook8B0nx9mhO/gQ32zbnQLKLFihFk=
 github.com/carusyte/roprox v0.0.0-20200110091438-c3572b84d04f/go.mod h1:bVEGj1Bc4G1Qx/Fy6p0TqN7zpLHrvlinDPLAtuvJ9Zw=
