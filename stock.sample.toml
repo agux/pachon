@@ -125,6 +125,7 @@ hid_blue_star_ratio = 0.15
 hid_blue_rear_warn_ratio = 0.33
 
 [Sampler]
+cpu_workload_ratio = 0.5
 sample = false
 prior_length = 300
 grader = "RemaLr"

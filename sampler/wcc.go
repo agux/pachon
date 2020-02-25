@@ -169,7 +169,7 @@ func PcalWcc(expInferFile, upload, nocache, overwrite bool, localPath, rbase str
 	// make job channel & waitgroup, start calculation goroutine
 	pcch := make(chan *pcaljob, conf.Args.Concurrency)
 	pcwg := new(sync.WaitGroup)
-	pl := int(float64(runtime.NumCPU()) * 0.8)
+	pl := int(math.Max(float64(runtime.NumCPU())*conf.Args.Sampler.CPUWorkloadRatio, 1.0))
 	for i := 0; i < pl; i++ {
 		pcwg.Add(1)
 		go pcalWccWorker(pcch, expch, dbch, pcwg)
@@ -199,7 +199,7 @@ func CalWcc(stocks *model.Stocks) {
 		stocks.Add(getd.StocksDb()...)
 	}
 	var wg sync.WaitGroup
-	pl := int(float64(runtime.NumCPU()) * 0.8)
+	pl := int(math.Max(float64(runtime.NumCPU())*conf.Args.Sampler.CPUWorkloadRatio, 1.0))
 	wf := make(chan int, pl)
 	suc := make(chan string, global.JobCapacity)
 	var rstks []string
@@ -479,7 +479,7 @@ func ImpWcc(tasklog, path string, del bool) {
 	}
 	chjob := make(chan *impJob, conf.Args.Concurrency)
 	wg := new(sync.WaitGroup)
-	pl := int(float64(runtime.NumCPU()) * 0.8)
+	pl := int(math.Max(float64(runtime.NumCPU())*conf.Args.Sampler.CPUWorkloadRatio, 1.0))
 	for i := 0; i < pl; i++ {
 		wg.Add(1)
 		go importWCCIR(chjob, wg, tasklog, path, del)

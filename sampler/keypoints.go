@@ -3,6 +3,7 @@ package sampler
 import (
 	"database/sql"
 	"fmt"
+	"math"
 	"runtime"
 	"strings"
 	"sync"
@@ -29,7 +30,7 @@ func SampAllKeyPoints() (e error) {
 	}
 
 	var wg sync.WaitGroup
-	pl := int(float64(runtime.NumCPU()) * 0.8)
+	pl := int(math.Max(float64(runtime.NumCPU())*conf.Args.Sampler.CPUWorkloadRatio, 1.0))
 	wf := make(chan int, pl)
 	fail := make(chan string, global.JobCapacity)
 	failstks := make([]string, 0, 16)

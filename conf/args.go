@@ -149,6 +149,7 @@ type Arguments struct {
 		HidBlueRearWarnRatio float64  `mapstructure:"hid_blue_rear_warn_ratio"`
 	}
 	Sampler struct {
+		CPUWorkloadRatio    float64  `mapstructure:"cpu_workload_ratio"`
 		Sample              bool     `mapstructure:"sample"`
 		PriorLength         int      `mapstructure:"prior_length"`
 		Resample            int      `mapstructure:"resample"`
@@ -242,6 +243,7 @@ func setDefaults() {
 	Args.ChromeDP.PoolSize = Args.Concurrency
 	Args.ChromeDP.Headless = true
 	Args.ChromeDP.Timeout = 45
+	Args.Sampler.CPUWorkloadRatio = 0.5
 	Args.Sampler.Resample = 5
 	Args.Sampler.Sample = true
 	Args.Sampler.TestSetBatchSize = 3000

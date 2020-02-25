@@ -3,6 +3,7 @@ package sampler
 import (
 	"database/sql"
 	"fmt"
+	"math"
 	"math/rand"
 	"runtime"
 	"strings"
@@ -32,7 +33,7 @@ func CalXCorl(stocks *model.Stocks) {
 		stocks.Add(getd.StocksDb()...)
 	}
 	var wg sync.WaitGroup
-	pl := int(float64(runtime.NumCPU()) * 0.8)
+	pl := int(math.Max(float64(runtime.NumCPU())*conf.Args.Sampler.CPUWorkloadRatio, 1.0))
 	wf := make(chan int, pl)
 	suc := make(chan string, global.JobCapacity)
 	var rstks []string

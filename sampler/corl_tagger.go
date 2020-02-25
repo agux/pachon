@@ -127,8 +127,7 @@ func TagCorlTrn(table CorlTab, flag string, erase bool) (e error) {
 	chjob := make(chan *tagJob, conf.Args.DBQueueCapacity)
 	chr := make(chan *tagJob, conf.Args.DBQueueCapacity)
 	ngrps := len(grps)
-	//start cpu_num/2 of goroutines
-	pll := int(math.Max(float64(runtime.NumCPU())*0.5, 1.0))
+	pll := int(math.Max(float64(runtime.NumCPU())*conf.Args.Sampler.CPUWorkloadRatio, 1.0))
 	wgr.Add(1)
 	go collectTagJob(ngrps, &wgr, chr)
 	for i := 0; i < pll; i++ {
