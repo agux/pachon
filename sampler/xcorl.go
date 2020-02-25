@@ -157,7 +157,7 @@ func sampXCorlTrnAt(stock *model.Stock, klid int) (stop bool, xt []*model.XCorlT
 	_, err = dbmap.Select(&klhist, query, code)
 	if err != nil {
 		if sql.ErrNoRows != err {
-			log.Printf(`%s failed to load kline hist data, %+v`, code, err)
+			log.Errorf(`%s failed to load kline hist data, %+v`, code, err)
 			return true, xt
 		}
 		log.Printf(`%s no data in kline_d_b %s`, code, qryKlid)

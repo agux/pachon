@@ -1974,7 +1974,7 @@ func sampWccTrnAt(stock *model.Stock, klid int) (retry bool, wccs []*model.WccTr
 	var klhist []*model.TradeDataLogRtn
 	if _, e = dbmap.Select(&klhist, query, code); e != nil {
 		if sql.ErrNoRows != e {
-			log.Printf(`%s failed to load kline hist data, %+v`, code, e)
+			log.Errorf(`%s failed to load kline hist data, %+v`, code, e)
 			return true, wccs, e
 		}
 		log.Printf(`%s no data in kline_d_b_lr %s`, code, qryKlid)
