@@ -644,8 +644,8 @@ type TradeDataBasic struct {
 	VarateRglHigh sql.NullFloat64 `db:"-"`
 	VarateRglOpen sql.NullFloat64 `db:"-"`
 	VarateRglLow  sql.NullFloat64 `db:"-"`
-	Udate         sql.NullString
-	Utime         sql.NullString
+	Udate         sql.NullString  `db:"udate"`
+	Utime         sql.NullString  `db:"utime"`
 }
 
 func (d *TradeDataBasic) String() string {

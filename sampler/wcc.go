@@ -193,7 +193,6 @@ func PcalWcc(expInferFile, upload, nocache, overwrite bool, localPath, rbase str
 
 //CalWcc calculates Warping Correlation Coefficient for stocks
 func CalWcc(stocks *model.Stocks) {
-	//TODO refactor this func to adapt latest table structure
 	if stocks == nil {
 		stocks = &model.Stocks{}
 		stocks.Add(getd.StocksDb()...)
@@ -1856,54 +1855,114 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 		<-*wf
 	}()
 	code := stock.Code
-	var err error
 	prior := conf.Args.Sampler.PriorLength
 	shift := conf.Args.Sampler.WccMaxShift
 	span := conf.Args.Sampler.CorlSpan
 	syear := conf.Args.Sampler.CorlStartYear
 	portion := conf.Args.Sampler.CorlPortion
-	maxKlid, err := dbmap.SelectInt(`select max(klid) from kline_d_b where code = ?`, code)
-	if err != nil {
-		log.Printf(`%s failed to query max klid, %+v`, code, err)
+	output := func(fin int, wccs []*model.WccTrn) {
+		out <- &wccTrnDBJob{
+			stock: stock,
+			fin:   fin,
+			wccs:  wccs,
+		}
+	}
+	retry := func(op func(int) error) bool {
+		if e := repeat.Repeat(
+			repeat.FnWithCounter(op),
+			repeat.StopOnSuccess(),
+			repeat.LimitMaxTries(conf.Args.DefaultRetry),
+			repeat.WithDelay(
+				repeat.FullJitterBackoff(5*time.Second).WithMaxDelay(10*time.Second).Set(),
+			),
+		); e != nil {
+			log.Errorf("giving up: %+v", e)
+			output(-1, nil)
+			return false
+		}
+		return true
+	}
+	var maxKlid int64
+	if ok := retry(func(c int) (e error) {
+		maxKlid, e = dbmap.SelectInt(`select max(klid) from kline_d_b where code = ?`, code)
+		if e != nil {
+			log.Warnf(`#d %s failed to query max klid, %+v`, c, code, e)
+			return repeat.HintTemporary(e)
+		}
+		return
+	}); !ok {
 		return
 	}
 	maxk := int(maxKlid)
 	if maxk+1 < prior {
 		log.Printf("%s insufficient data for wcc_trn sampling: got %d, prior of %d required",
 			code, maxk+1, prior)
+		output(1, nil)
 		return
 	}
+	var smpklids []int
 	start, end := 0, maxk-span+1
-	if len(syear) > 0 {
-		sklid, err := dbmap.SelectInt(`select min(klid) from kline_d_b where code = ? and date >= ?`, code, syear)
-		if err != nil {
-			log.Printf(`%s failed to query min klid, %+v`, code, err)
+	if ok := retry(func(c int) error {
+		if len(syear) > 0 {
+			sklid, e := dbmap.SelectInt(`select min(klid) from kline_d_b where code = ? and date >= ?`, code, syear)
+			if e != nil {
+				log.Warnf(`#%d %s failed to query min klid, %+v`, c, code, e)
+				return repeat.HintTemporary(e)
+			}
+			if int(sklid)+1 < prior {
+				start = prior - shift
+			} else {
+				start = int(sklid)
+			}
+		} else if prior > 0 {
+			start = prior - shift
+		}
+		if _, e := dbmap.Select(&smpklids,
+			`select distinct klid from wcc_trn where code = ?`,
+			code); e != nil {
+			log.Warnf("#%d %s failed to query klid from wcc_trn: %+v", c, code, e)
+			return repeat.HintTemporary(e)
+		}
+		return nil
+	}); !ok {
+		return
+	}
+	if conf.Args.Sampler.CorlResumeMode {
+		ratioDelta := portion - float64(len(smpklids))/float64(maxk+1)
+		if ratioDelta > 0 {
+			portion = ratioDelta
+		} else {
+			log.Infof("%s wcc_trn existing sample: %d, skipping", code, len(smpklids))
+			output(1, nil)
 			return
 		}
-		if int(sklid)+1 < prior {
-			start = prior - shift
-		} else {
-			start = int(sklid)
-		}
-	} else if prior > 0 {
-		start = prior - shift
+	}
+	exKlids := ""
+	if len(smpklids) > 0 {
+		exKlids = fmt.Sprintf("AND klid NOT IN (%v)",
+			strings.ReplaceAll(strings.Trim(fmt.Sprint(smpklids), "[]"), " ", ","))
 	}
 	var klids []int
-	dbmap.Select(&klids, `SELECT 
-								klid
-							FROM
-								kline_d_b
-							WHERE
-								code = ?
-								AND klid BETWEEN ? AND ?
-								AND klid NOT IN (SELECT DISTINCT
-									klid
-								FROM
-									wcc_trn
-								WHERE
-									code = ?)`,
-		code, start, end, code,
-	)
+	if ok := retry(func(c int) error {
+		if _, e := dbmap.Select(&klids,
+			`SELECT 
+				klid
+			FROM
+				kline_d_b
+			WHERE
+				code = ?
+				AND klid BETWEEN ? AND ?
+				%s`,
+			code, start, end, exKlids,
+		); e != nil {
+			log.Warnf("#%d failed to query klid for %s: %+v", c, code, e)
+			return repeat.HintTemporary(e)
+		}
+		return nil
+	}); !ok {
+		return
+	}
+
 	num := int(float64(len(klids)) * portion)
 	if num == 0 {
 		log.Printf("%s insufficient data for wcc_trn sampling", code)
@@ -1911,23 +1970,21 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 	}
 	sidx := rand.Perm(len(klids))[:num]
 	log.Printf("%s selected %d/%d klids from kline_d_b", code, num, len(klids))
-	retry := false
-	var e error
-	var wccs []*model.WccTrn
 	for _, idx := range sidx {
 		klid := klids[idx]
-		for rt := 0; rt < 3; rt++ {
-			retry, wccs, e = sampWccTrnAt(stock, klid)
-			if !retry && e == nil {
-				break
+		var wccs []*model.WccTrn
+		if ok := retry(func(c int) (e error) {
+			r := false
+			r, wccs, e = sampWccTrnAt(stock, klid)
+			if e != nil {
+				if r {
+					log.Printf("%s klid(%d) retrying %d...", stock.Code, klid, c+1)
+					return repeat.HintTemporary(e)
+				}
+				return repeat.HintStop(e)
 			}
-			log.Printf("%s klid(%d) retrying %d...", stock.Code, klid, rt+1)
-		}
-		if e != nil {
-			out <- &wccTrnDBJob{
-				stock: stock,
-				fin:   -1,
-			}
+			return nil
+		}); !ok {
 			break
 		}
 		if len(wccs) > 0 {
@@ -2041,17 +2098,17 @@ func sampWccTrnWithTab(table, code string, klid int, skl *model.TradeDataLogRtn,
 		return
 	}
 
+	//FIXME need to fine tune this query's performance
 	query = `
 		SELECT 
 			code,
 			date,
-			klid,
 			close
 		FROM
 			%s
 		WHERE
 			code IN (%s) AND date IN (%s)
-		ORDER BY code, klid
+		ORDER BY code, date
 	`
 	codeStr := util.Join(codes, ",", true)
 	dateStr = util.Join(dates[prior:], ",", true)

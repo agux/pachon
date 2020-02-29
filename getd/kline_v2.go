@@ -66,7 +66,7 @@ var (
 type klineFetcher interface {
 	//fetchKline from specific data source for the given stock.
 	fetchKline(stk *model.Stock, fr FetchRequest, incr bool) (
-		tdmap map[FetchRequest]*model.TradeData, lkmap map[FetchRequest]int, suc, retry bool)
+		tdmap map[FetchRequest]*model.TradeData, suc, retry bool)
 }
 
 //stateful is capable of caching states in memory and provides capability to cleanup those states.
@@ -111,7 +111,7 @@ func GetTrDataDB(code string, qry TrDataQry, limit int, desc bool) (trdat *model
 		wg.Add(1)
 		go func(tab string, typ reflect.Type) {
 			defer wg.Done()
-			cols := getTableColumns(typ)
+			cols, _ := getTableColumns(typ)
 			intf := reflect.New(reflect.SliceOf(typ)).Interface()
 			if limit <= 0 {
 				sql := fmt.Sprintf("select %s from %s where code = ? order by klid",
@@ -220,7 +220,7 @@ func GetTrDataBtwn(code string, qry TrDataQry, field TradeDataField, cond1, cond
 		wg.Add(1)
 		go func(table string, typ reflect.Type) {
 			defer wg.Done()
-			cols := getTableColumns(typ)
+			cols, _ := getTableColumns(typ)
 			intf := reflect.New(reflect.SliceOf(typ)).Interface()
 			sql := fmt.Sprintf("select %s from %s where code = ? %s %s order by klid %s",
 				strings.Join(cols, ","), table, cond1, cond2, d)
@@ -297,7 +297,7 @@ func GetTrDataAt(code string, qry TrDataQry, field TradeDataField, desc bool, va
 		wg.Add(1)
 		go func(table string, typ reflect.Type) {
 			defer wg.Done()
-			cols := getTableColumns(typ)
+			cols, _ := getTableColumns(typ)
 			intf := reflect.Zero(reflect.SliceOf(typ)).Interface()
 			for i := range args {
 				cond := fmt.Sprintf("%s in (%s)", field, strings.Join(holders[i], ","))
@@ -493,11 +493,16 @@ func resolveTables(q TrDataQry) (tables map[string]reflect.Type) {
 }
 
 // returns a mapping of [database table] to [table columns] based on availability of data sets in TradeData.
-func resolveTradeDataTables(td *model.TradeData) (tabCols map[string][]string, tabData map[string]interface{}) {
+func resolveTradeDataTables(td *model.TradeData) (
+	tabCols map[string][]string,
+	tabFields map[string][]string,
+	tabData map[string]interface{}) {
+
 	if td.Empty() {
 		return
 	}
 	tabCols = make(map[string][]string)
+	tabFields = make(map[string][]string)
 	tabData = make(map[string]interface{})
 	base := ""
 	switch td.Source {
@@ -527,26 +532,31 @@ func resolveTradeDataTables(td *model.TradeData) (tabCols map[string][]string, t
 		log.Panicf("Unsupported reinstatement type: %v, query param: %+v", td.Reinstatement, td)
 	}
 	if len(td.Base) > 0 {
-		tabCols[base] = getTableColumns(model.TradeDataBasic{})
-		tabData[base] = td.Base
+		tabKey := base
+		tabCols[tabKey], tabFields[tabKey] = getTableColumns(model.TradeDataBasic{})
+		tabData[tabKey] = td.Base
 	}
 	if len(td.LogRtn) > 0 {
-		tabCols[base+"_lr"] = getTableColumns(model.TradeDataLogRtn{})
-		tabData[base+"_lr"] = td.LogRtn
+		tabKey := base + "_lr"
+		tabCols[tabKey], tabFields[tabKey] = getTableColumns(model.TradeDataLogRtn{})
+		tabData[tabKey] = td.LogRtn
 	}
 	if len(td.MovAvg) > 0 {
-		tabCols[base+"_ma"] = getTableColumns(model.TradeDataMovAvg{})
-		tabData[base+"_ma"] = td.MovAvg
+		tabKey := base + "_ma"
+		tabCols[tabKey], tabFields[tabKey] = getTableColumns(model.TradeDataMovAvg{})
+		tabData[tabKey] = td.MovAvg
 	}
 	if len(td.MovAvgLogRtn) > 0 {
-		tabCols[base+"_ma_lr"] = getTableColumns(model.TradeDataMovAvgLogRtn{})
-		tabData[base+"_ma_lr"] = td.MovAvgLogRtn
+		tabKey := base + "_ma_lr"
+		tabCols[tabKey], tabFields[tabKey] = getTableColumns(model.TradeDataMovAvgLogRtn{})
+		tabData[tabKey] = td.MovAvgLogRtn
 	}
 	return
 }
 
-//returns the column names of the ORM mapping defined in the struct.
-func getTableColumns(i interface{}) (cols []string) {
+//returns the column names and field names of the ORM mapping defined in the struct.
+func getTableColumns(i interface{}) (cols, fields []string) {
+	//TODO this type of static meta information can be cached in memory
 	var t reflect.Type
 	var ok bool
 	if t, ok = i.(reflect.Type); ok {
@@ -569,6 +579,7 @@ func getTableColumns(i interface{}) (cols []string) {
 		}
 		if "-" != c {
 			cols = append(cols, strings.ToLower(c))
+			fields = append(fields, f.Name)
 		}
 	}
 	return
@@ -846,7 +857,7 @@ func CalLogReturnsV2(trdat *model.TradeData) {
 }
 
 //Assign KLID, calculate Varate, MovAvg, add update datetime
-func supplementMiscV2(trdat *model.TradeData, start int) {
+func supplementMiscV2(trdat *model.TradeData) (lastKlid int) {
 	if trdat == nil || trdat.MaxLen() == 0 {
 		return
 	}
@@ -860,20 +871,28 @@ func supplementMiscV2(trdat *model.TradeData, start int) {
 	for i := range maSrc {
 		maSrc[i] = trdat.Base[len(maSrc)-1-i]
 	}
+	tdq := TrDataQry{
+		LocalSource: trdat.Source,
+		Cycle:       trdat.Cycle,
+		Reinstate:   trdat.Reinstatement,
+		Basic:       true,
+	}
+	start := -1
+	htd := GetTrDataAt(trdat.Code, tdq, Date, false, trdat.Base[0].Date)
+	if len(htd.Base) > 0 {
+		start = htd.Base[0].Klid - 1
+	}
+	lastKlid = start
 	//expand maSrc for ma calculation
 	sklid := strconv.Itoa(start + 1 - mas[len(mas)-1])
 	eklid := strconv.Itoa(start + 1)
 	src := GetTrDataBtwn(
 		trdat.Code,
-		TrDataQry{
-			LocalSource: trdat.Source,
-			Cycle:       trdat.Cycle,
-			Reinstate:   trdat.Reinstatement,
-			Basic:       true,
-		},
+		tdq,
 		Klid,
 		sklid,
-		eklid, true)
+		eklid,
+		true)
 	//maSrc is in descending order, contrary to klines
 	maSrc = append(maSrc, src.Base...)
 	for i := 0; i < size; i++ {
@@ -1010,6 +1029,7 @@ func supplementMiscV2(trdat *model.TradeData, start int) {
 			}
 		}
 	}
+	return
 }
 
 func binsertV2(trdat *model.TradeData, lklid int) (c int) {
@@ -1044,7 +1064,7 @@ func binsertV2(trdat *model.TradeData, lklid int) (c int) {
 	rt := 0
 	lklid++
 	code := trdat.Code
-	tables, data := resolveTradeDataTables(trdat)
+	tables, fields, data := resolveTradeDataTables(trdat)
 	var e error
 	// delete stale records first
 	for table := range tables {
@@ -1068,13 +1088,13 @@ func binsertV2(trdat *model.TradeData, lklid int) (c int) {
 	var wg sync.WaitGroup
 	for table, cols := range tables {
 		wg.Add(1)
-		go insertTradeData(table, cols, data[table], &wg)
+		go insertTradeData(table, cols, fields[table], data[table], &wg)
 	}
 	wg.Wait()
 	return
 }
 
-func insertMinibatchV2(table string, cols []string, v reflect.Value) (c int) {
+func insertMinibatchV2(table string, cols, fields []string, v reflect.Value) (c int) {
 	//v is a slice of trade data of some kind
 	rowSize := v.Len()
 	elem := reflect.Indirect(v.Index(0))
@@ -1102,7 +1122,10 @@ func insertMinibatchV2(table string, cols []string, v reflect.Value) (c int) {
 		elem := reflect.Indirect(v.Index(i))
 		valueStrings = append(valueStrings, holderString)
 		for j := 0; j < numFields; j++ {
-			valueArgs = append(valueArgs, elem.Field(j).Interface())
+			valueArgs = append(
+				valueArgs,
+				elem.FieldByName(fields[j]).Interface(),
+			)
 		}
 	}
 
@@ -1125,7 +1148,7 @@ func insertMinibatchV2(table string, cols []string, v reflect.Value) (c int) {
 	return
 }
 
-func insertTradeData(table string, cols []string, rows interface{}, wg *sync.WaitGroup) {
+func insertTradeData(table string, cols, fields []string, rows interface{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 	v := reflect.ValueOf(rows)
 	len := v.Len()
@@ -1133,7 +1156,7 @@ func insertTradeData(table string, cols []string, rows interface{}, wg *sync.Wai
 	c := 0
 	for idx := 0; idx < len; idx += batchSize {
 		end := int(math.Min(float64(len), float64(idx+batchSize)))
-		c += insertMinibatchV2(table, cols, v.Slice(idx, end))
+		c += insertMinibatchV2(table, cols, fields, v.Slice(idx, end))
 	}
 	if len != c {
 		log.Panicf("unmatched given records and actual inserted records: %d vs. %d", len, c)
@@ -1427,16 +1450,15 @@ func FreeFetcherResources() {
 }
 
 func getKlineFromSource(stk *model.Stock, kf klineFetcher, fetReq ...FetchRequest) (
-	tdmap map[FetchRequest]*model.TradeData, lkmap map[FetchRequest]int, suc bool) {
+	tdmap map[FetchRequest]*model.TradeData, suc bool) {
 
 	tdmap = make(map[FetchRequest]*model.TradeData)
-	lkmap = make(map[FetchRequest]int)
 	code := stk.Code
 	xdxr := latestUFRXdxr(stk.Code)
 
 	genop := func(q FetchRequest, incr bool) (op func(c int) (e error)) {
 		return func(c int) (e error) {
-			rtdMap, rlkMap, suc, retry := kf.fetchKline(stk, q, incr)
+			rtdMap, suc, retry := kf.fetchKline(stk, q, incr)
 			if !suc {
 				e = fmt.Errorf("failed to get kline for %s", code)
 				if retry {
@@ -1451,7 +1473,6 @@ func getKlineFromSource(stk *model.Stock, kf klineFetcher, fetReq ...FetchReques
 					log.Infof("%s %+v fetched: %d", code, tabs, td.MaxLen())
 				}
 				tdmap[fr] = td
-				lkmap[fr] = rlkMap[fr]
 			}
 			return nil
 		}
@@ -1476,7 +1497,7 @@ func getKlineFromSource(stk *model.Stock, kf klineFetcher, fetReq ...FetchReques
 		}
 	}
 
-	return tdmap, lkmap, suc
+	return tdmap, suc
 }
 
 func getKlineV2(stk *model.Stock, dsmap map[model.DataSource][]FetchRequest, qmap map[FetchRequest]chan *dbTask,
@@ -1487,10 +1508,10 @@ func getKlineV2(stk *model.Stock, dsmap map[model.DataSource][]FetchRequest, qma
 	}()
 
 	tdmap := make(map[FetchRequest]*model.TradeData)
-	lkmap := make(map[FetchRequest]int)
+
 	for src, frs := range dsmap {
 		kf := kfmap[src]
-		tdmapTmp, lkmapTmp, suc := getKlineFromSource(stk, kf, frs...)
+		tdmapTmp, suc := getKlineFromSource(stk, kf, frs...)
 		if !suc {
 			//abort immediately
 			return
@@ -1498,12 +1519,10 @@ func getKlineV2(stk *model.Stock, dsmap map[model.DataSource][]FetchRequest, qma
 		for k, v := range tdmapTmp {
 			tdmap[k] = v
 		}
-		for k, v := range lkmapTmp {
-			lkmap[k] = v
-		}
 	}
-	for q, trdat := range tdmap {
-		supplementMiscV2(trdat, lkmap[q])
+	lkmap := make(map[FetchRequest]int)
+	for fr, trdat := range tdmap {
+		lkmap[fr] = supplementMiscV2(trdat)
 	}
 	// if !isIndex(stk.Code) {
 	// 	if e := calcVarateRglV2(stk, tdmap); e != nil {

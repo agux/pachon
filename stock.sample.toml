@@ -152,6 +152,9 @@ corl_portion = 0.035
 corl_span = 20
 corl_time_steps = 35
 corl_time_shift = 4
+# if true, sampler will check sample data table before sampling in order to calculate
+# how much more samples are needed to meet the "corl_portion" target
+corl_resume_mode = true
 
 feature_cols = ["lr", "lr_vol"]
 

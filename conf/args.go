@@ -169,6 +169,7 @@ type Arguments struct {
 		CorlSpan            int      `mapstructure:"corl_span"`
 		CorlTimeSteps       int      `mapstructure:"corl_time_steps"`
 		CorlTimeShift       int      `mapstructure:"corl_time_shift"`
+		CorlResumeMode      bool     `mapstructure:"corl_resume_mode"`
 		XCorlShift          int      `mapstructure:"xcorl_shift"`
 		WccMaxShift         int      `mapstructure:"wcc_max_shift"`
 		FeatureCols         []string `mapstructure:"feature_cols"`

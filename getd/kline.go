@@ -670,8 +670,8 @@ func fetchRemoteKline(stk *model.Stock, kltype []model.DBTab) (ok bool) {
 	for k, v := range lkmapNV {
 		lkmap[k] = v
 	}
-	for klt, trdat := range tdmap {
-		supplementMiscV2(trdat, lkmap[klt])
+	for _, trdat := range tdmap {
+		supplementMiscV2(trdat)
 	}
 	// insert non-reinstated quotes first for regulated varate calculation
 	for klt, trdat := range tdmap {

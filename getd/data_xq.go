@@ -48,10 +48,9 @@ func (f *XqKlineFetcher) getExtraRequests(frIn []FetchRequest) (frOut []FetchReq
 
 //fetchKline from Xueqiu for the given stock.
 func (f *XqKlineFetcher) fetchKline(stk *model.Stock, fr FetchRequest, incr bool) (
-	tdmap map[FetchRequest]*model.TradeData, lkmap map[FetchRequest]int, suc, retry bool) {
+	tdmap map[FetchRequest]*model.TradeData, suc, retry bool) {
 
 	tdmap = make(map[FetchRequest]*model.TradeData)
-	lkmap = make(map[FetchRequest]int)
 
 	period := ""
 	xdrType := "normal"
@@ -84,13 +83,11 @@ func (f *XqKlineFetcher) fetchKline(stk *model.Stock, fr FetchRequest, incr bool
 	}
 
 	tabs := resolveTableNames(fr)
-	lkmap[fr] = -1
 	ldate := ""
 	if incr {
 		ldy := getLatestTradeDataBasic(code, fr.LocalSource, cycle, rtype, 5+1) //plus one offset for pre-close, varate calculation
 		if ldy != nil {
 			ldate = ldy.Date
-			lkmap[fr] = ldy.Klid
 		} else {
 			log.Printf("%s latest %+v data not found, will be fully refreshed", code, tabs)
 		}
@@ -105,37 +102,33 @@ func (f *XqKlineFetcher) fetchKline(stk *model.Stock, fr FetchRequest, incr bool
 	}
 	count := -142
 	multiGet := false
-	if lkmap[fr] == -1 {
+	if ldate == "" {
 		count = int(math.Round(-.75*(time.Since(startDate).Hours()/24.) - float64(rand.Intn(1000))))
 		multiGet = true
 	} else {
 		ltime, e := time.Parse(global.DateFormat, ldate)
 		if e != nil {
 			log.Warnf("%s %+v failed to parse date value '%s': %+v", stk.Code, tabs, ldate, e)
-			return tdmap, lkmap, false, false
+			return tdmap, false, false
 		}
 		count = -1 * (int(time.Since(ltime).Hours()/24) + 2)
 	}
 
 	xqk, e := tryXQKline(code, symbol, period, xdrType, count, multiGet)
 	if e != nil {
-		return tdmap, lkmap, false, true
+		return tdmap, false, true
 	}
 
-	if extd, exlk, e := f.fixData(stk, xqk, fr); e != nil {
-		return tdmap, lkmap, false, false
-	} else if len(extd) > 0 && len(exlk) > 0 {
+	if extd, e := f.fixData(stk, xqk, fr); e != nil {
+		return tdmap, false, false
+	} else if len(extd) > 0 {
 		for k, v := range extd {
 			tdmap[k] = v
-		}
-		for k, v := range exlk {
-			lkmap[k] = v
 		}
 	} else {
 		//construct empty signal entry
 		exfr := f.extraRequest(fr)
 		tdmap[exfr] = nil
-		lkmap[exfr] = -1
 	}
 
 	//construct trade data
@@ -147,7 +140,7 @@ func (f *XqKlineFetcher) fetchKline(stk *model.Stock, fr FetchRequest, incr bool
 		Base:          xqk.GetData(false),
 	}
 
-	return tdmap, lkmap, true, false
+	return tdmap, true, false
 }
 
 func (f *XqKlineFetcher) mapCode(fromCode, targetSource string) (toCode string, found bool) {
@@ -174,7 +167,7 @@ func (f *XqKlineFetcher) mapCode(fromCode, targetSource string) (toCode string, 
 
 //supplement kline data from validate table if any
 func (f *XqKlineFetcher) fixData(stk *model.Stock, k *model.XQKline, fr FetchRequest) (
-	extd map[FetchRequest]*model.TradeData, exlk map[FetchRequest]int, e error) {
+	extd map[FetchRequest]*model.TradeData, e error) {
 
 	if len(k.MissingData) == 0 && len(k.MissingAmount) == 0 {
 		return
@@ -240,7 +233,7 @@ func (f *XqKlineFetcher) fixData(stk *model.Stock, k *model.XQKline, fr FetchReq
 		//clone and update stk code for data fix
 		vstk := *stk
 		vstk.Code = vcode
-		extd, exlk, suc = getKlineFromSource(&vstk, kf, exfr)
+		extd, suc = getKlineFromSource(&vstk, kf, exfr)
 		if !suc {
 			msg := fmt.Sprintf("%s %+v failed to fix data for the following dates: %+v", k.Code, tabs, dates)
 			e = errors.New(msg)

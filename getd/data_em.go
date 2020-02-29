@@ -51,13 +51,11 @@ func (f *EmKlineFetcher) cachedValue(code string, c model.CYTP, r model.Rtype) (
 
 //fetchKline from eastmoney for the given stock.
 func (f *EmKlineFetcher) fetchKline(stk *model.Stock, fr FetchRequest, incr bool) (
-	tdmap map[FetchRequest]*model.TradeData, lkmap map[FetchRequest]int, suc, retry bool) {
+	tdmap map[FetchRequest]*model.TradeData, suc, retry bool) {
 
 	tdmap = make(map[FetchRequest]*model.TradeData)
-	lkmap = make(map[FetchRequest]int)
 
 	code := stk.Code
-	lkmap[fr] = -1
 	cycle := fr.Cycle
 	rtype := fr.Reinstate
 
@@ -107,7 +105,7 @@ func (f *EmKlineFetcher) fetchKline(stk *model.Stock, fr FetchRequest, incr bool
 		log.Printf("%s %+v data will be fully refreshed", code, tabs)
 		emk, e = tryEMKline(code, symbol, period, authorityType)
 		if e != nil {
-			return tdmap, lkmap, false, true
+			return tdmap, false, true
 		}
 	}
 
@@ -116,7 +114,7 @@ func (f *EmKlineFetcher) fetchKline(stk *model.Stock, fr FetchRequest, incr bool
 		e = fixEMKline(f, emk, fr)
 		if e != nil {
 			log.Warn(e)
-			return tdmap, lkmap, false, true
+			return tdmap, false, true
 		}
 	}
 
@@ -135,7 +133,7 @@ func (f *EmKlineFetcher) fetchKline(stk *model.Stock, fr FetchRequest, incr bool
 		f.cache(trdat)
 	}
 
-	return tdmap, lkmap, true, false
+	return tdmap, true, false
 }
 
 func newEMKline(code, symbol, period, authorityType string, data []*model.TradeDataBasic) (emk *model.EMKline) {
