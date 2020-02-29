@@ -204,7 +204,7 @@ func CalWcc(stocks *model.Stocks) {
 	var rstks []string
 	wgr := collect(&rstks, suc)
 	chwcc := make(chan *wccTrnDBJob, conf.Args.DBQueueCapacity)
-	wgdb := goSaveWccTrn(chwcc, suc)
+	wgdb := goSaveWccTrn(chwcc, suc, stocks.Size())
 	log.Printf("calculating warping correlation coefficients for training, parallel level:%d", pl)
 	for _, stk := range stocks.List {
 		wg.Add(1)
@@ -1970,7 +1970,7 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 	}
 	sidx := rand.Perm(len(klids))[:num]
 	log.Printf("%s selected %d/%d klids from kline_d_b", code, num, len(klids))
-	for _, idx := range sidx {
+	for i, idx := range sidx {
 		klid := klids[idx]
 		var wccs []*model.WccTrn
 		if ok := retry(func(c int) (e error) {
@@ -1994,6 +1994,7 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 				wccs:  wccs,
 			}
 		}
+		log.Infof("%s progress [%.2f%%]", stock.Code, float64(i+1)/float64(num))
 	}
 	out <- &wccTrnDBJob{
 		stock: stock,
@@ -2179,12 +2180,13 @@ func sampWccTrnWithTab(table, code string, klid int, skl *model.TradeDataLogRtn,
 	return
 }
 
-func goSaveWccTrn(chwcc chan *wccTrnDBJob, suc chan string) (wg *sync.WaitGroup) {
+func goSaveWccTrn(chwcc chan *wccTrnDBJob, suc chan string, total int) (wg *sync.WaitGroup) {
 	wg = new(sync.WaitGroup)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		counter := make(map[string]int)
+		c := 0
 		for w := range chwcc {
 			code := w.stock.Code
 			if w.fin < 0 {
@@ -2201,6 +2203,10 @@ func goSaveWccTrn(chwcc chan *wccTrnDBJob, suc chan string) (wg *sync.WaitGroup)
 			} else {
 				log.Printf("%s finished wccs_trn sampling, total: %d", code, counter[code])
 				suc <- w.stock.Code
+			}
+			if w.fin != 0 {
+				c++
+				log.Infof("Overall Progress: [%.2f%%]", float64(c)/float64(total))
 			}
 		}
 	}()

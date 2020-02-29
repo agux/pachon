@@ -1380,7 +1380,7 @@ CREATE TABLE `index_d_n` (
   KEY `INDEX_D_N_IDX1` (`code`,`klid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED COMMENT='Daily Index (Non-Reinstated)'
 /*!50100 PARTITION BY KEY (`code`, `date`)
-PARTITIONS 256 */;
+PARTITIONS 1024 */;
 
 CREATE TABLE `index_d_n_lr` (
   `code` varchar(8) NOT NULL,
@@ -1402,7 +1402,7 @@ CREATE TABLE `index_d_n_lr` (
   KEY `INDEX_D_N_LR_IDX1` (`code`,`klid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED COMMENT='Daily Index Log Return (Non-Reinstated)'
 /*!50100 PARTITION BY KEY (`code`, `date`)
-PARTITIONS 256 */;
+PARTITIONS 1024 */;
 
 CREATE TABLE `index_d_n_ma` (
   `code` varchar(8) NOT NULL,
@@ -1430,7 +1430,7 @@ CREATE TABLE `index_d_n_ma` (
   KEY `INDEX_D_N_MA_IDX1` (`code`,`klid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED COMMENT='Daily Index Moving Average (Non-Reinstated)'
 /*!50100 PARTITION BY KEY (`code`, `date`)
-PARTITIONS 256 */;
+PARTITIONS 1024 */;
 
 CREATE TABLE `index_d_n_ma_lr` (
   `code` varchar(8) NOT NULL,
@@ -1482,7 +1482,7 @@ CREATE TABLE `index_d_n_ma_lr` (
   KEY `INDEX_D_N_MA_LR_IDX1` (`code`,`klid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED COMMENT='Daily Index Moving Average Log Return (Non-Reinstated)'
 /*!50100 PARTITION BY KEY (`code`, `date`)
-PARTITIONS 256 */;
+PARTITIONS 1024 */;
 
 CREATE TABLE `index_m_n` (
   `code` varchar(8) NOT NULL,
@@ -1954,7 +1954,7 @@ CREATE TABLE `kline_d_b_lr` (
   KEY `KLINE_D_B_LR_IDX1` (`code`,`klid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED COMMENT='Daily Kline Log Return (Backward Reinstate)'
 /*!50100 PARTITION BY KEY (`code`, `date`)
-PARTITIONS 2048 */;
+PARTITIONS 4096 */;
 
 CREATE TABLE `kline_d_b_ma` (
   `code` varchar(8) NOT NULL,
@@ -3300,7 +3300,7 @@ CREATE TABLE `wcc_trn` (
   KEY `wcc_trn_idx_01` (`flag`,`bno`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED
 /*!50100 PARTITION BY LINEAR HASH (`uuid`)
-PARTITIONS 4096 */;
+PARTITIONS 8192 */;
 
 CREATE TABLE `worst_rec` (
   `model` varchar(45) NOT NULL,
