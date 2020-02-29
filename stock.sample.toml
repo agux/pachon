@@ -63,6 +63,7 @@ sample_size_min = 5
 stats_retro_span = 1000
 
 [DataSource]
+market_close_time = "15:30:00"
 #kline = "tencent"
 #kline = "ths"
 kline = "wht"

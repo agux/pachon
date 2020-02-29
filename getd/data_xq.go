@@ -103,7 +103,9 @@ func (f *XqKlineFetcher) fetchKline(stk *model.Stock, fr FetchRequest, incr bool
 	count := -142
 	multiGet := false
 	if ldate == "" {
-		count = int(math.Round(-.75*(time.Since(startDate).Hours()/24.) - float64(rand.Intn(1000))))
+		count = int(math.Round(
+			-.75*(time.Since(startDate).Hours()/24.) - float64(rand.Intn(1000)),
+		))
 		multiGet = true
 	} else {
 		ltime, e := time.Parse(global.DateFormat, ldate)
@@ -175,7 +177,7 @@ func (f *XqKlineFetcher) fixData(stk *model.Stock, k *model.XQKline, fr FetchReq
 
 	vsrc := model.DataSource(conf.Args.DataSource.Validate.Source)
 	vcode, found := f.mapCode(k.Code, conf.Args.DataSource.Validate.Source)
-	
+
 	if len(stk.Source) > 0 && !found {
 		//if the stock is index and no mapping code is found, skip it
 		return

@@ -1954,7 +1954,7 @@ CREATE TABLE `kline_d_b_lr` (
   KEY `KLINE_D_B_LR_IDX1` (`code`,`klid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED COMMENT='Daily Kline Log Return (Backward Reinstate)'
 /*!50100 PARTITION BY KEY (`code`, `date`)
-PARTITIONS 4096 */;
+PARTITIONS 8192 */;
 
 CREATE TABLE `kline_d_b_ma` (
   `code` varchar(8) NOT NULL,

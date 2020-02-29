@@ -1454,7 +1454,6 @@ func getKlineFromSource(stk *model.Stock, kf klineFetcher, fetReq ...FetchReques
 
 	tdmap = make(map[FetchRequest]*model.TradeData)
 	code := stk.Code
-	xdxr := latestUFRXdxr(stk.Code)
 
 	genop := func(q FetchRequest, incr bool) (op func(c int) (e error)) {
 		return func(c int) (e error) {
@@ -1482,7 +1481,7 @@ func getKlineFromSource(stk *model.Stock, kf klineFetcher, fetReq ...FetchReques
 	for _, q := range fetReq {
 		incr := true
 		if q.Reinstate == model.Forward {
-			incr = xdxr == nil
+			incr = latestUFRXdxr(stk.Code) == nil
 		}
 		e := repeat.Repeat(
 			repeat.FnWithCounter(genop(q, incr)),

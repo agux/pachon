@@ -94,6 +94,7 @@ type Arguments struct {
 		Timeout  int64  `mapstructure:"timeout"`
 	}
 	DataSource struct {
+		MarketCloseTime       string    `mapstructure:"market_close_time"`
 		Kline                 string    `mapstructure:"kline"`
 		KlineFailureRetry     int       `mapstructure:"kline_failure_retry"`
 		Index                 string    `mapstructure:"index"`
