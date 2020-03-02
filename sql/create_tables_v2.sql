@@ -3228,7 +3228,7 @@ CREATE TABLE `proxy_list` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `stats` (
-  `code` varchar(6) NOT NULL,
+  `code` varchar(60) NOT NULL,
   `start` varchar(20) DEFAULT NULL,
   `end` varchar(20) DEFAULT NULL,
   `dur` decimal(10,5) DEFAULT NULL,
