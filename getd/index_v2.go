@@ -32,16 +32,35 @@ func GetIndicesV2() (idxlst, suclst []*model.IdxLst) {
 			Source: src,
 		})
 	}
-	fr := FetchRequest{
-		RemoteSource: model.DataSource(src),
-		LocalSource:  model.Index,
-		Reinstate:    model.None,
-	}
-	cs := []model.CYTP{model.DAY, model.WEEK, model.MONTH}
-	frs := make([]FetchRequest, len(cs))
-	for i, c := range cs {
-		fr.Cycle = c
-		frs[i] = fr
+	var frs []FetchRequest
+	kltypes := conf.Args.DataSource.KlineTypes
+	if len(kltypes) > 0 {
+		cycles := make(map[string]bool)
+		for _, t := range kltypes {
+			c := t["cycle"]
+			if _, ok := cycles[c]; ok {
+				continue
+			}
+			cycles[c] = true
+			frs = append(frs, FetchRequest{
+				RemoteSource: model.DataSource(src),
+				LocalSource:  model.Index,
+				Reinstate:    model.None,
+				Cycle:        model.CYTP(c),
+			})
+		}
+	} else {
+		fr := FetchRequest{
+			RemoteSource: model.DataSource(src),
+			LocalSource:  model.Index,
+			Reinstate:    model.None,
+		}
+		cs := []model.CYTP{model.DAY, model.WEEK, model.MONTH}
+		frs = make([]FetchRequest, len(cs))
+		for i, c := range cs {
+			fr.Cycle = c
+			frs[i] = fr
+		}
 	}
 	rstks := GetKlinesV2(stks, frs...)
 	for _, c := range rstks.Codes {
