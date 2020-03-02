@@ -8,6 +8,21 @@ import (
 	"github.com/agux/pachon/model"
 )
 
+func readFetReqs() (frs []FetchRequest) {
+	kltypes := conf.Args.DataSource.KlineTypes
+	frs = make([]FetchRequest, len(kltypes))
+	src := model.DataSource(conf.Args.DataSource.Kline)
+	for i := range frs {
+		frs[i] = FetchRequest{
+			RemoteSource: src,
+			LocalSource:  model.KlineMaster,
+			Reinstate:    model.Rtype(kltypes[i]["reinstate"]),
+			Cycle:        model.CYTP(kltypes[i]["cycle"]),
+		}
+	}
+	return
+}
+
 //GetV2 gets miscellaneous stock info.
 func GetV2() {
 	var allstks, stks *model.Stocks
@@ -56,11 +71,11 @@ func GetV2() {
 	stks = getKlineVld(stks)
 
 	src := model.DataSource(conf.Args.DataSource.Kline)
-	frs := make([]FetchRequest, 3)
-	cs := []model.CYTP{model.DAY, model.WEEK, model.MONTH}
 	postProcess := false
+	cs := []model.CYTP{model.DAY, model.WEEK, model.MONTH}
 	if !conf.Args.DataSource.SkipKlinePre {
 		begin := time.Now()
+		frs := make([]FetchRequest, 3)
 		for i := range frs {
 			frs[i] = FetchRequest{
 				RemoteSource: src,
@@ -78,19 +93,25 @@ func GetV2() {
 
 	if !conf.Args.DataSource.SkipKlines {
 		begin := time.Now()
-		frs = make([]FetchRequest, 6)
-		for i := range frs {
-			csi := int(math.Mod(float64(i), 3))
-			r := model.Backward
-			if i > 2 {
-				r = model.Forward
+		var frs []FetchRequest
+		frSize := len(conf.Args.DataSource.KlineTypes)
+		if frSize <= 0 {
+			frs = make([]FetchRequest, 6)
+			for i := range frs {
+				csi := int(math.Mod(float64(i), 3))
+				r := model.Backward
+				if i > 2 {
+					r = model.Forward
+				}
+				frs[i] = FetchRequest{
+					RemoteSource: src,
+					LocalSource:  model.KlineMaster,
+					Reinstate:    r,
+					Cycle:        cs[csi],
+				}
 			}
-			frs[i] = FetchRequest{
-				RemoteSource: src,
-				LocalSource:  model.KlineMaster,
-				Reinstate:    r,
-				Cycle:        cs[csi],
-			}
+		} else {
+			frs = readFetReqs()
 		}
 		stks = GetKlinesV2(stks, frs...)
 		StopWatch("GET_MASTER_KLINES", begin)

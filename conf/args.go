@@ -94,27 +94,28 @@ type Arguments struct {
 		Timeout  int64  `mapstructure:"timeout"`
 	}
 	DataSource struct {
-		MarketCloseTime       string    `mapstructure:"market_close_time"`
-		Kline                 string    `mapstructure:"kline"`
-		KlineFailureRetry     int       `mapstructure:"kline_failure_retry"`
-		Index                 string    `mapstructure:"index"`
-		Industry              string    `mapstructure:"industry"`
-		SkipStocks            bool      `mapstructure:"skip_stocks"`
-		SkipFinance           bool      `mapstructure:"skip_finance"`
-		SkipKlineVld          bool      `mapstructure:"skip_kline_vld"`
-		SkipKlinePre          bool      `mapstructure:"skip_kline_pre"`
-		SkipFinancePrediction bool      `mapstructure:"skip_finance_prediction"`
-		SkipXdxr              bool      `mapstructure:"skip_xdxr"`
-		SkipKlines            bool      `mapstructure:"skip_klines"`
-		SkipFsStats           bool      `mapstructure:"skip_fs_stats"`
-		SkipIndices           bool      `mapstructure:"skip_indices"`
-		SkipBasicsUpdate      bool      `mapstructure:"skip_basics_update"`
-		SkipIndexCalculation  bool      `mapstructure:"skip_index_calculation"`
-		SkipFinMark           bool      `mapstructure:"skip_fin_mark"`
-		SampleKdjFeature      bool      `mapstructure:"sample_kdj_feature"`
-		IndicatorSource       string    `mapstructure:"indicator_source"`
-		LimitPriceDayLr       []float64 `mapstructure:"limit_price_day_lr"`
-		FeatureScaling        string    `mapstructure:"feature_scaling"`
+		MarketCloseTime       string              `mapstructure:"market_close_time"`
+		Kline                 string              `mapstructure:"kline"`
+		KlineFailureRetry     int                 `mapstructure:"kline_failure_retry"`
+		KlineTypes            []map[string]string `mapstructure:"kline_types"`
+		Index                 string              `mapstructure:"index"`
+		Industry              string              `mapstructure:"industry"`
+		SkipStocks            bool                `mapstructure:"skip_stocks"`
+		SkipFinance           bool                `mapstructure:"skip_finance"`
+		SkipKlineVld          bool                `mapstructure:"skip_kline_vld"`
+		SkipKlinePre          bool                `mapstructure:"skip_kline_pre"`
+		SkipFinancePrediction bool                `mapstructure:"skip_finance_prediction"`
+		SkipXdxr              bool                `mapstructure:"skip_xdxr"`
+		SkipKlines            bool                `mapstructure:"skip_klines"`
+		SkipFsStats           bool                `mapstructure:"skip_fs_stats"`
+		SkipIndices           bool                `mapstructure:"skip_indices"`
+		SkipBasicsUpdate      bool                `mapstructure:"skip_basics_update"`
+		SkipIndexCalculation  bool                `mapstructure:"skip_index_calculation"`
+		SkipFinMark           bool                `mapstructure:"skip_fin_mark"`
+		SampleKdjFeature      bool                `mapstructure:"sample_kdj_feature"`
+		IndicatorSource       string              `mapstructure:"indicator_source"`
+		LimitPriceDayLr       []float64           `mapstructure:"limit_price_day_lr"`
+		FeatureScaling        string              `mapstructure:"feature_scaling"`
 		Validate              struct {
 			Source           string `mapstructure:"source"`
 			DropInconsistent bool   `mapstructure:"drop_inconsistent"`

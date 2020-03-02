@@ -2,6 +2,7 @@ package getd
 
 import (
 	"fmt"
+	"math"
 	"runtime"
 	"sync"
 
@@ -45,7 +46,7 @@ func CollectFsStats() {
 		}
 	}
 	ch := make(chan map[string]string, conf.Args.DBQueueCapacity)
-	pl := runtime.NumCPU()
+	pl := int(math.Round(float64(runtime.NumCPU()) * conf.Args.Sampler.CPUWorkloadRatio))
 	var wg sync.WaitGroup
 	for i := 0; i < pl; i++ {
 		wg.Add(1)

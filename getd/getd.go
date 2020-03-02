@@ -135,9 +135,11 @@ func StopWatch(code string, start time.Time) {
 	end := time.Now().Format(global.DateTimeFormat)
 	dur := time.Since(start).Seconds()
 	log.Printf("%s Complete. Time Elapsed: %f sec", code, dur)
-	dbmap.Exec("insert into stats (code, start, end, dur) values (?, ?, ?, ?) "+
+	if _, e := dbmap.Exec("insert into stats (code, start, end, dur) values (?, ?, ?, ?) "+
 		"on duplicate key update start=values(start), end=values(end), dur=values(dur)",
-		code, ss, end, dur)
+		code, ss, end, dur); e != nil {
+		log.Errorf("failed to update stats table: %+v", e)
+	}
 }
 
 //update xpriced flag in xdxr to mark that all price related data has been reinstated
