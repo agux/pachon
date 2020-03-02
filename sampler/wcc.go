@@ -1945,15 +1945,15 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 	var klids []int
 	if ok := retry(func(c int) error {
 		if _, e := dbmap.Select(&klids,
-			`SELECT 
+			fmt.Sprintf(`SELECT 
 				klid
 			FROM
 				kline_d_b
 			WHERE
 				code = ?
 				AND klid BETWEEN ? AND ?
-				%s`,
-			code, start, end, exKlids,
+				%s`, exKlids),
+			code, start, end,
 		); e != nil {
 			log.Warnf("#%d failed to query klid for %s: %+v", c, code, e)
 			return repeat.HintTemporary(e)
