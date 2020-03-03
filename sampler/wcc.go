@@ -1930,7 +1930,9 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 	if conf.Args.Sampler.CorlResumeMode {
 		ratioDelta := portion - float64(len(smpklids))/float64(maxk+1)
 		if ratioDelta > 0 {
-			log.Infof("%s running in resume mode, found %d samples", code, len(smpklids))
+			if len(smpklids) > 0 {
+				log.Infof("%s running in resume mode, found %d samples", code, len(smpklids))
+			}
 			portion = ratioDelta
 		} else {
 			log.Infof("%s running in resume mode, wcc_trn existing sample: %d, skipping", code, len(smpklids))
@@ -2082,10 +2084,21 @@ func sampWccTrnWithTab(table, code string, klid int, skl *model.TradeDataLogRtn,
 	shift := conf.Args.Sampler.WccMaxShift
 
 	var codes []string
-	dateStr := util.Join(dates, ",", true)
+	args := []interface{}{code}
+	qDates := "?" + strings.Repeat(",?", len(dates)-1)
+	ym := make(map[string]bool)
+	for _, d := range dates {
+		args = append(args, d)
+		ym[d[:4]+d[5:7]] = true
+	}
+	qym := "?" + strings.Repeat(",?", len(ym)-1)
+	for k := range ym {
+		args = append(args, k)
+	}
+	args = append(args, len(dates), minReq-1)
 	query := fmt.Sprintf(`select code from %s where code <> ? and date in (%s) `+
-		`group by code having count(*) = ? and min(klid) >= ?`, table, dateStr)
-	if _, e = dbmap.Select(&codes, query, code, len(dates), minReq-1); e != nil {
+		`and ym in (%s) group by code having count(*) = ? and min(klid) >= ?`, table, qDates, qym)
+	if _, e = dbmap.Select(&codes, query, args...); e != nil {
 		if sql.ErrNoRows != e {
 			log.Errorf(`%s failed to load reference data from %s, %+v`, code, table, e)
 			return true, wccs, e
@@ -2100,14 +2113,13 @@ func sampWccTrnWithTab(table, code string, klid int, skl *model.TradeDataLogRtn,
 		return
 	}
 
-	//FIXME need to fine tune this query's performance
 	argDates := dates[prior:]
-	ym := make(map[string]bool)
+	ym = make(map[string]bool)
 	for _, d := range argDates {
 		//extract year_month
 		ym[d[:4]+d[5:7]] = true
 	}
-	var args []interface{}
+	args = make([]interface{}, 0, 8)
 	for k := range ym {
 		args = append(args, k)
 	}
