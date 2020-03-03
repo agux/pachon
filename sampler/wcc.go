@@ -1930,9 +1930,10 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 	if conf.Args.Sampler.CorlResumeMode {
 		ratioDelta := portion - float64(len(smpklids))/float64(maxk+1)
 		if ratioDelta > 0 {
+			log.Infof("%s running in resume mode, found %d samples", code, len(smpklids))
 			portion = ratioDelta
 		} else {
-			log.Infof("%s wcc_trn existing sample: %d, skipping", code, len(smpklids))
+			log.Infof("%s running in resume mode, wcc_trn existing sample: %d, skipping", code, len(smpklids))
 			output(1, nil)
 			return
 		}
@@ -1994,7 +1995,7 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 				wccs:  wccs,
 			}
 		}
-		log.Infof("%s progress [%.2f%%]", stock.Code, float64(i+1)/float64(num))
+		log.Infof("%s progress [%.2f%%]", stock.Code, float64(i+1)/float64(num)*100.)
 	}
 	out <- &wccTrnDBJob{
 		stock: stock,
@@ -2226,7 +2227,7 @@ func goSaveWccTrn(chwcc chan *wccTrnDBJob, suc chan string, total int) (wg *sync
 			}
 			if w.fin != 0 {
 				c++
-				log.Infof("Overall Progress: [%.2f%%]", float64(c)/float64(total))
+				log.Infof("Overall Progress: [%.2f%%]", float64(c)/float64(total)*100.)
 			}
 		}
 	}()
