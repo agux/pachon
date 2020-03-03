@@ -1997,7 +1997,7 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 				wccs:  wccs,
 			}
 		}
-		log.Infof("%s progress [%.2f%%]", stock.Code, float64(i+1)/float64(num)*100.)
+		log.Debugf("%s progress [%.2f%%]", stock.Code, float64(i+1)/float64(num)*100.)
 	}
 	out <- &wccTrnDBJob{
 		stock: stock,
@@ -2049,7 +2049,7 @@ func sampWccTrnAt(stock *model.Stock, klid int) (retry bool, wccs []*model.WccTr
 
 	//query reference security kline_d_b_lr with shifted matching dates & calculate correlation
 	skl := klhist[offset]
-	log.Printf("%s sampling wcc at %d, %s", skl.Code, skl.Klid, skl.Date)
+	log.Debugf("%s sampling wcc at %d, %s", skl.Code, skl.Klid, skl.Date)
 	// ref code dates
 	dates := make([]string, len(klhist)-1)
 	// target code lrs
@@ -2229,7 +2229,7 @@ func goSaveWccTrn(chwcc chan *wccTrnDBJob, suc chan string, total int) (wg *sync
 				e := saveWccTrn(w.wccs...)
 				if e == nil {
 					counter[code] += len(w.wccs)
-					log.Printf("%s %d wcc_trn saved, start date:%s", code, len(w.wccs), w1.Date)
+					log.Debugf("%s %d wcc_trn saved, start date:%s", code, len(w.wccs), w1.Date)
 				} else {
 					log.Panicf("%s %s db operation error:%+v", code, w1.Date, e)
 				}
