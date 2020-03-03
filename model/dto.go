@@ -655,6 +655,7 @@ func (d *TradeDataBasic) String() string {
 //TradeDataLogRtn models Log Returns for the trading data.
 type TradeDataLogRtn struct {
 	Code      string
+	YM        int `db:"-"`
 	Date      string
 	Klid      int
 	Amount    sql.NullFloat64

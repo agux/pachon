@@ -2100,6 +2100,22 @@ func sampWccTrnWithTab(table, code string, klid int, skl *model.TradeDataLogRtn,
 	}
 
 	//FIXME need to fine tune this query's performance
+	argDates := dates[prior:]
+	ym := make(map[string]bool)
+	for _, d := range argDates {
+		//extract year_month
+		ym[d[:4]+d[5:7]] = true
+	}
+	var args []interface{}
+	for k, _ := range ym {
+		args = append(args, k)
+	}
+	for _, c := range codes {
+		args = append(args, c)
+	}
+	for _, d := range argDates {
+		args = append(args, d)
+	}
 	query = `
 		SELECT 
 			code,
@@ -2108,14 +2124,18 @@ func sampWccTrnWithTab(table, code string, klid int, skl *model.TradeDataLogRtn,
 		FROM
 			%s
 		WHERE
-			code IN (%s) AND date IN (%s)
+			ym IN (%s)
+			AND code IN (%s) 
+			AND date IN (%s)
 		ORDER BY code, date
 	`
-	codeStr := util.Join(codes, ",", true)
-	dateStr = util.Join(dates[prior:], ",", true)
-	query = fmt.Sprintf(query, table, codeStr, dateStr)
+	query = fmt.Sprintf(query, table,
+		"?"+strings.Repeat(",?", len(ym)-1),
+		"?"+strings.Repeat(",?", len(codes)-1),
+		"?"+strings.Repeat(",?", len(argDates)-1),
+	)
 	var rhist []*model.TradeDataLogRtn
-	if _, e = dbmap.Select(&rhist, query); e != nil {
+	if _, e = dbmap.Select(&rhist, query, args...); e != nil {
 		if sql.ErrNoRows != e {
 			log.Errorf(`%s failed to load reference data from %s, %+v`, code, table, e)
 			return true, wccs, e
