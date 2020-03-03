@@ -2233,7 +2233,7 @@ func goSaveWccTrn(chwcc chan *wccTrnDBJob, suc chan string, total int) (wg *sync
 					log.Panicf("%s %s db operation error:%+v", code, w1.Date, e)
 				}
 			} else {
-				log.Printf("%s finished wccs_trn sampling, total: %d", code, counter[code])
+				log.Printf("%s finished wccs_trn sampling, collected samples: %d", code, counter[code])
 				suc <- w.stock.Code
 			}
 			if w.fin != 0 {
