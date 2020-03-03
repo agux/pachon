@@ -1927,19 +1927,26 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 	}); !ok {
 		return
 	}
+	targetNum := int(float64(maxk+1) * portion)
+	if targetNum == 0 {
+		log.Printf("%s insufficient data for wcc_trn sampling", code)
+		output(1, nil)
+		return
+	}
 	if conf.Args.Sampler.CorlResumeMode {
 		ratioDelta := portion - float64(len(smpklids))/float64(maxk+1)
-		if ratioDelta > 0 {
+		targetNum = int(float64(maxk+1) * ratioDelta)
+		if targetNum > 0 {
 			if len(smpklids) > 0 {
-				log.Infof("%s running in resume mode, found %d samples", code, len(smpklids))
+				log.Infof("%s running in resume mode, existing sample: %d, remaining: %d", code, len(smpklids), targetNum)
 			}
-			portion = ratioDelta
 		} else {
-			log.Infof("%s running in resume mode, wcc_trn existing sample: %d, skipping", code, len(smpklids))
+			log.Infof("%s running in resume mode, existing sample: %d, skipping", code, len(smpklids))
 			output(1, nil)
 			return
 		}
 	}
+
 	exKlids := ""
 	if len(smpklids) > 0 {
 		exKlids = fmt.Sprintf("AND klid NOT IN (%v)",
@@ -1966,13 +1973,12 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 		return
 	}
 
-	num := int(float64(len(klids)) * portion)
-	if num == 0 {
+	if len(klids) == 0 {
 		log.Printf("%s insufficient data for wcc_trn sampling", code)
 		return
 	}
-	sidx := rand.Perm(len(klids))[:num]
-	log.Printf("%s selected %d/%d klids from kline_d_b", code, num, len(klids))
+	sidx := rand.Perm(len(klids))[:targetNum]
+	log.Printf("%s selected %d/%d klids from kline_d_b", code, targetNum, len(klids))
 	for i, idx := range sidx {
 		klid := klids[idx]
 		var wccs []*model.WccTrn
@@ -1991,18 +1997,11 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 			break
 		}
 		if len(wccs) > 0 {
-			out <- &wccTrnDBJob{
-				stock: stock,
-				fin:   0,
-				wccs:  wccs,
-			}
+			output(0, wccs)
 		}
-		log.Debugf("%s progress [%.2f%%]", stock.Code, float64(i+1)/float64(num)*100.)
+		log.Debugf("%s progress [%.2f%%]", stock.Code, float64(i+1)/float64(targetNum)*100.)
 	}
-	out <- &wccTrnDBJob{
-		stock: stock,
-		fin:   1,
-	}
+	output(1, nil)
 }
 
 //klid is not included in target corl span
@@ -2042,7 +2041,7 @@ func sampWccTrnAt(stock *model.Stock, klid int) (retry bool, wccs []*model.WccTr
 		return
 	}
 	if len(klhist) < prior+shift+span {
-		log.Printf("%s insufficient data for wcc_trn sampling at klid %d: %d, %d required",
+		log.Warnf("%s insufficient data for wcc_trn sampling at klid %d: %d, requiring %d",
 			code, klid, len(klhist), prior+shift+span)
 		return
 	}
