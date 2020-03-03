@@ -2107,7 +2107,7 @@ func sampWccTrnWithTab(table, code string, klid int, skl *model.TradeDataLogRtn,
 		ym[d[:4]+d[5:7]] = true
 	}
 	var args []interface{}
-	for k, _ := range ym {
+	for k := range ym {
 		args = append(args, k)
 	}
 	for _, c := range codes {
