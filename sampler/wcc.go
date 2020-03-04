@@ -1977,6 +1977,9 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 		log.Printf("%s insufficient data for wcc_trn sampling", code)
 		return
 	}
+	if len(klids) < targetNum {
+		targetNum = len(klids)
+	}
 	sidx := rand.Perm(len(klids))[:targetNum]
 	log.Printf("%s selected %d/%d klids from kline_d_b", code, targetNum, len(klids))
 	for i, idx := range sidx {
