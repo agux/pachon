@@ -175,7 +175,10 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 	for j := range chjob {
 		var args []interface{}
 		strg := "?" + strings.Repeat(",?", len(j.uuids)-1)
-		args = append(args, j.flag, j.bno, j.uuids...)
+		args = append(args, j.flag, j.bno)
+		for _, el := range j.uuids {
+			args = append(args, el)
+		}
 		log.Printf("tagging %s,%d size: %d", j.flag, j.bno, len(j.uuids))
 		op := func(c int) (e error) {
 			if _, e = dbmap.Exec(
