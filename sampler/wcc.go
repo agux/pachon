@@ -248,17 +248,20 @@ func UpdateWcc() {
 	}
 	//update corl stock by stock to avoid undo file explosion
 	var codes []string
-	_, e = dbmap.Select(&codes, `select distinct code from wcc_trn order by code`)
+	_, e = dbmap.Select(&codes, `select distinct code from wcc_trn`)
 	if e != nil {
 		log.Errorf("failed to query codes in wcc_trn: %+v", errors.WithStack(e))
 		return
 	}
 	log.Printf("max: %f, updating corl value for %d stocks...", max, len(codes))
-	for i, c := range codes {
-		prog := float32(i+1) / float32(len(codes)) * 100.
-		log.Printf("updating corl for %s, progress: %.3f%%", c, prog)
-		_, e = dbmap.Exec(`
-			UPDATE wcc_trn  
+	// execute in paralell, but need to disable undo log in MySQL.
+	var wg, wgr sync.WaitGroup
+	ich := make(chan string, conf.Args.DBQueueCapacity)
+	och := make(chan string, conf.Args.DBQueueCapacity)
+	genop := func(code string) func(c int) (e error) {
+		return func(c int) (e error) {
+			_, e = dbmap.Exec(`
+			UPDATE wcc_trn
 			SET
 				corl = CASE
 					WHEN min_diff < :mx - max_diff THEN - min_diff / :mx * 2 + 1
@@ -267,20 +270,61 @@ func UpdateWcc() {
 				udate=DATE_FORMAT(now(), '%Y-%m-%d'), 
 				utime=DATE_FORMAT(now(), '%H:%i:%S')
 			WHERE code = :code
-	`, map[string]interface{}{"mx": max, "code": c})
-		if e != nil {
-			log.Errorf("failed to update corl for %s: %+v", c, errors.WithStack(e))
+			`, map[string]interface{}{"mx": max, "code": code})
+			if e != nil {
+				e = errors.Wrapf(e, "#d failed to update corl for %s", c, code)
+				log.Error(e)
+				return repeat.HintTemporary(e)
+			}
 			return
 		}
 	}
+	wgr.Add(1)
+	go func() {
+		defer wgr.Done()
+		c := 0.
+		total := float64(len(codes))
+		for code := range och {
+			c++
+			prog := c / total * 100.
+			log.Printf("corl for %s has been updated, progress: %.3f%%", code, prog)
+		}
+	}()
+	pl := int(math.Round(float64(runtime.NumCPU()) * conf.Args.Sampler.CPUWorkloadRatio))
+	for i := 0; i < pl; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for code := range ich {
+				if e := repeat.Repeat(
+					repeat.FnWithCounter(genop(code)),
+					repeat.StopOnSuccess(),
+					repeat.LimitMaxTries(conf.Args.DefaultRetry),
+					repeat.WithDelay(repeat.FullJitterBackoff(2*time.Second).WithMaxDelay(30*time.Second).Set()),
+				); e != nil {
+					log.Panic(e)
+				}
+			}
+		}()
+	}
+	for _, c := range codes {
+		ich <- c
+	}
+	close(ich)
+	wg.Wait()
+	close(och)
+	wgr.Wait()
+
 	log.Printf("collecting corl stats...")
+	//TODO this sql takes more than an hour to complete
 	_, e = dbmap.Exec(`
 		INSERT INTO fs_stats (method, tab, fields, mean, std, vmax, udate, utime)
 		SELECT 'standardization', 'wcc_trn', 'corl', AVG(corl), STD(corl), ?, DATE_FORMAT(now(), '%Y-%m-%d'), DATE_FORMAT(now(), '%H:%i:%S') FROM wcc_trn
 		ON DUPLICATE KEY UPDATE mean=values(mean),std=values(std),vmax=values(vmax),udate=values(udate),utime=values(utime)
 	`, max)
 	if e != nil {
-		log.Printf("failed to collect corl stats: %+v", errors.WithStack(e))
+		e = errors.WithStack(e)
+		log.Errorf("failed to collect corl stats: %+v", e)
 		return
 	}
 
@@ -292,7 +336,7 @@ func StzWcc(codes ...string) (e error) {
 	log.Printf("standardizing...")
 	if codes == nil {
 		log.Printf("querying codes in wcc_trn table...")
-		_, e = dbmap.Select(&codes, `select distinct code from wcc_trn order by code`)
+		_, e = dbmap.Select(&codes, `select distinct code from wcc_trn`)
 		if e != nil {
 			log.Printf("failed to query codes in wcc_trn: %+v", errors.WithStack(e))
 			return
@@ -308,23 +352,64 @@ func StzWcc(codes ...string) (e error) {
 		return
 	}
 	log.Printf("%d codes, mean: %f std: %f, vmax: %f", len(codes), cstat.Mean, cstat.Std, cstat.Vmax)
-	//update stock by stock to avoid undo file explosion
-	for i, c := range codes {
-		prog := float32(i+1) / float32(len(codes)) * 100.
-		log.Printf("standardizing %s, progress: %.3f%%", c, prog)
-		_, e = dbmap.Exec(`
-			UPDATE wcc_trn w
-			SET 
-				corl_stz = (corl - ?) / ?,
-				udate=DATE_FORMAT(now(), '%Y-%m-%d'), 
-				utime=DATE_FORMAT(now(), '%H:%i:%S')
-			WHERE code = ?
-		`, cstat.Mean, cstat.Std, c)
-		if e != nil {
-			log.Printf("failed to standardize wcc corl for %s: %+v", c, errors.WithStack(e))
+	//execute in paralell. But needed to disable undo log in MySQL.
+	var wg, wgr sync.WaitGroup
+	ich := make(chan string, conf.Args.DBQueueCapacity)
+	och := make(chan string, conf.Args.DBQueueCapacity)
+	genop := func(code string) func(c int) (e error) {
+		return func(c int) (e error) {
+			_, e = dbmap.Exec(`
+				UPDATE wcc_trn w
+				SET 
+					corl_stz = (corl - ?) / ?,
+					udate=DATE_FORMAT(now(), '%Y-%m-%d'), 
+					utime=DATE_FORMAT(now(), '%H:%i:%S')
+				WHERE code = ?
+			`, cstat.Mean, cstat.Std, code)
+			if e != nil {
+				e = errors.Wrapf(e, "#d failed to standardize wcc corl for %s", c, code)
+				log.Error(e)
+				return repeat.HintTemporary(e)
+			}
 			return
 		}
 	}
+	wgr.Add(1)
+	go func() {
+		defer wgr.Done()
+		c := 0.
+		total := float64(len(codes))
+		for code := range och {
+			c++
+			prog := c / total * 100.
+			log.Printf("corl for %s has been standardized, progress: %.3f%%", code, prog)
+		}
+	}()
+	pl := int(math.Round(float64(runtime.NumCPU()) * conf.Args.Sampler.CPUWorkloadRatio))
+	for i := 0; i < pl; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for code := range ich {
+				if e := repeat.Repeat(
+					repeat.FnWithCounter(genop(code)),
+					repeat.StopOnSuccess(),
+					repeat.LimitMaxTries(conf.Args.DefaultRetry),
+					repeat.WithDelay(repeat.FullJitterBackoff(2*time.Second).WithMaxDelay(30*time.Second).Set()),
+				); e != nil {
+					log.Panic(e)
+				}
+			}
+		}()
+	}
+	for _, c := range codes {
+		ich <- c
+	}
+	close(ich)
+	wg.Wait()
+	close(och)
+	wgr.Wait()
+
 	return nil
 }
 

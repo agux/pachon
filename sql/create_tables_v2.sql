@@ -3232,7 +3232,7 @@ CREATE TABLE `stats` (
   `code` varchar(60) NOT NULL,
   `start` varchar(20) DEFAULT NULL,
   `end` varchar(20) DEFAULT NULL,
-  `dur` decimal(10,5) DEFAULT NULL,
+  `dur` decimal(12,3) DEFAULT NULL,
   PRIMARY KEY (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 

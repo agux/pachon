@@ -29,7 +29,6 @@ var (
 
 //GetKlines Get various types of kline data for the given stocks. Returns the stocks that have been successfully processed.
 func GetKlines(stks *model.Stocks, kltype ...model.DBTab) (rstks *model.Stocks) {
-	//TODO find a way to get minute level klines
 	defer Cleanup()
 	log.Printf("fetching kline data for %d stocks: %+v", stks.Size(), kltype)
 	var wg sync.WaitGroup
@@ -745,7 +744,6 @@ func getMinuteKlines(code string, tab model.DBTab) (klmin []*model.Quote, suc bo
 }
 
 func tryMinuteKlines(code string, tab model.DBTab) (klmin []*model.Quote, suc, retry bool) {
-	//TODO implement minute klines
 	//urlt := `https://xueqiu.com/stock/forchartk/stocklist.json?symbol=%s&period=60m&type=before`
 	panic("implement me ")
 }

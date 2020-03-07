@@ -5,11 +5,12 @@ import (
 	"math"
 	"math/rand"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/agux/pachon/conf"
+	"github.com/ssgreg/repeat"
 
 	"github.com/pkg/errors"
 )
@@ -56,6 +57,7 @@ func TagCorlTrn(table CorlTab, flag string, erase bool) (e error) {
 			return errors.WithStack(e)
 		}
 	} else {
+		log.Info("querying max bno from wcc_trn...")
 		// load existent max tag number
 		q := "SELECT  " +
 			"    MAX(distinct bno) AS max_bno " +
@@ -171,28 +173,30 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 	defer wg.Done()
 	var e error
 	for j := range chjob {
-		var strg []string
-		for _, i := range j.uuids {
-			strg = append(strg, strconv.Itoa(i))
-		}
-		uuids := strings.Join(strg, ",")
-		flag, bno := j.flag, j.bno
-		log.Printf("tagging %s,%d size: %d", flag, bno, len(strg))
-		rt := 0
-		for ; rt < 3; rt++ {
-			_, e = dbmap.Exec(fmt.Sprintf(`update %v set flag = ?, bno = ? where uuid in (%s)`, table, uuids), flag, bno)
-			if e != nil {
-				log.Printf("failed to update flag %s,%d: %+v, retrying %d...", flag, bno, e, rt+1)
-			} else {
-				break
+		var args []interface{}
+		strg := "?" + strings.Repeat(",?", len(j.uuids)-1)
+		args = append(args, j.flag, j.bno, j.uuids...)
+		log.Printf("tagging %s,%d size: %d", j.flag, j.bno, len(j.uuids))
+		op := func(c int) (e error) {
+			if _, e = dbmap.Exec(
+				fmt.Sprintf(`update %v set flag = ?, bno = ? where uuid in (%s)`, table, strg), args...,
+			); e != nil {
+				e = errors.Wrapf(e, "failed to update flag %s,%d, retrying %d...", j.flag, j.bno, c+1)
+				log.Error(e)
+				return repeat.HintTemporary(e)
 			}
+			return
 		}
-		if rt >= 3 {
-			if e != nil {
-				chr <- j
-			}
+		if e = repeat.Repeat(
+			repeat.FnWithCounter(op),
+			repeat.StopOnSuccess(),
+			repeat.LimitMaxTries(conf.Args.DefaultRetry),
+			repeat.WithDelay(
+				repeat.FullJitterBackoff(5*time.Second).WithMaxDelay(30*time.Second).Set(),
+			),
+		); e == nil {
+			j.done = true
 		}
-		j.done = true
 		chr <- j
 	}
 }
