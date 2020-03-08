@@ -55,10 +55,10 @@ var (
 	indexCodes        map[string]bool
 )
 
-type wccTrnDBJob struct {
+type wccSmpDBJob struct {
 	stock *model.Stock
 	fin   int //-1:abort, 0:unfinished, 1:finished
-	wccs  []*model.WccTrn
+	wccs  []*model.WccSmp
 }
 
 type stockrelDBJob struct {
@@ -203,13 +203,13 @@ func CalWcc(stocks *model.Stocks) {
 	suc := make(chan string, global.JobCapacity)
 	var rstks []string
 	wgr := collect(&rstks, suc)
-	chwcc := make(chan *wccTrnDBJob, conf.Args.DBQueueCapacity)
-	wgdb := goSaveWccTrn(chwcc, suc, stocks.Size())
+	chwcc := make(chan *wccSmpDBJob, conf.Args.DBQueueCapacity)
+	wgdb := goSaveWccSmp(chwcc, suc, stocks.Size())
 	log.Printf("calculating warping correlation coefficients for training, parallel level:%d", pl)
 	for _, stk := range stocks.List {
 		wg.Add(1)
 		wf <- 1
-		go sampWccTrn(stk, &wg, &wf, chwcc)
+		go sampWcc(stk, &wg, &wf, chwcc)
 	}
 	wg.Wait()
 	close(wf)
@@ -222,7 +222,7 @@ func CalWcc(stocks *model.Stocks) {
 
 	UpdateWcc()
 
-	log.Printf("wcc_trn data saved. sampled stocks: %d / %d", len(rstks), stocks.Size())
+	log.Printf("wcc_smp data saved. sampled stocks: %d / %d", len(rstks), stocks.Size())
 	if stocks.Size() != len(rstks) {
 		codes := make([]string, stocks.Size())
 		for i, s := range stocks.List {
@@ -235,22 +235,22 @@ func CalWcc(stocks *model.Stocks) {
 	}
 }
 
-//UpdateWcc updates corl and corl_stz column in the wcc_trn table based on sampled min_diff and max_diff
+//UpdateWcc updates corl and corl_stz column in the wcc_smp table based on sampled min_diff and max_diff
 func UpdateWcc() {
 	//remap [0, x] to [1, -1] (in opposite direction)
 	//formula: -1 * ((x-f1)/(t1-f1) * (t2-f2) + f2)
 	//simplified: (f1-x)/(t1-f1)*(t2-f2)-f2
 	log.Printf("querying max(max_diff) + min(min_diff)...")
-	max, e := dbmap.SelectFloat("select max(max_diff) + min(min_diff) from wcc_trn")
+	max, e := dbmap.SelectFloat("select max(max_diff) + min(min_diff) from wcc_smp")
 	if e != nil {
 		log.Errorf("failed to query max(max_diff) + min(min_diff) for wcc: %+v", errors.WithStack(e))
 		return
 	}
 	//update corl stock by stock to avoid undo file explosion
 	var codes []string
-	_, e = dbmap.Select(&codes, `select distinct code from wcc_trn`)
+	_, e = dbmap.Select(&codes, `select distinct code from wcc_smp`)
 	if e != nil {
-		log.Errorf("failed to query codes in wcc_trn: %+v", errors.WithStack(e))
+		log.Errorf("failed to query codes in wcc_smp: %+v", errors.WithStack(e))
 		return
 	}
 	log.Printf("max: %f, updating corl value for %d stocks...", max, len(codes))
@@ -261,7 +261,7 @@ func UpdateWcc() {
 	genop := func(code string) func(c int) (e error) {
 		return func(c int) (e error) {
 			_, e = dbmap.Exec(`
-			UPDATE wcc_trn
+			UPDATE wcc_smp
 			SET
 				corl = CASE
 					WHEN min_diff < :mx - max_diff THEN - min_diff / :mx * 2 + 1
@@ -319,7 +319,7 @@ func UpdateWcc() {
 	//TODO this sql takes more than an hour to complete
 	_, e = dbmap.Exec(`
 		INSERT INTO fs_stats (method, tab, fields, mean, std, vmax, udate, utime)
-		SELECT 'standardization', 'wcc_trn', 'corl', AVG(corl), STD(corl), ?, DATE_FORMAT(now(), '%Y-%m-%d'), DATE_FORMAT(now(), '%H:%i:%S') FROM wcc_trn
+		SELECT 'standardization', 'wcc_smp', 'corl', AVG(corl), STD(corl), ?, DATE_FORMAT(now(), '%Y-%m-%d'), DATE_FORMAT(now(), '%H:%i:%S') FROM wcc_smp
 		ON DUPLICATE KEY UPDATE mean=values(mean),std=values(std),vmax=values(vmax),udate=values(udate),utime=values(utime)
 	`, max)
 	if e != nil {
@@ -331,14 +331,14 @@ func UpdateWcc() {
 	StzWcc(codes...)
 }
 
-//StzWcc standardizes wcc_trn corl value and updates corl_stz field in the table.
+//StzWcc standardizes wcc_smp corl value and updates corl_stz field in the table.
 func StzWcc(codes ...string) (e error) {
 	log.Printf("standardizing...")
 	if codes == nil {
-		log.Printf("querying codes in wcc_trn table...")
-		_, e = dbmap.Select(&codes, `select distinct code from wcc_trn`)
+		log.Printf("querying codes in wcc_smp table...")
+		_, e = dbmap.Select(&codes, `select distinct code from wcc_smp`)
 		if e != nil {
-			log.Printf("failed to query codes in wcc_trn: %+v", errors.WithStack(e))
+			log.Printf("failed to query codes in wcc_smp: %+v", errors.WithStack(e))
 			return
 		}
 	}
@@ -346,7 +346,7 @@ func StzWcc(codes ...string) (e error) {
 		Mean, Std, Vmax float32
 	}
 	e = dbmap.SelectOne(&cstat, `select mean, std, vmax from fs_stats where method = ? and tab = ? and fields = ?`,
-		`standardization`, `wcc_trn`, `corl`)
+		`standardization`, `wcc_smp`, `corl`)
 	if e != nil {
 		log.Printf("failed to query corl stats: %+v", errors.WithStack(e))
 		return
@@ -359,7 +359,7 @@ func StzWcc(codes ...string) (e error) {
 	genop := func(code string) func(c int) (e error) {
 		return func(c int) (e error) {
 			_, e = dbmap.Exec(`
-				UPDATE wcc_trn w
+				UPDATE wcc_smp w
 				SET 
 					corl_stz = (corl - ?) / ?,
 					udate=DATE_FORMAT(now(), '%Y-%m-%d'), 
@@ -1041,9 +1041,9 @@ func getWccFeatStats() (stats *model.FsStats) {
 	}
 	query := func() {
 		op := func(c int) (e error) {
-			log.Printf("#%d querying fs_stats for wcc_trn...", c)
+			log.Printf("#%d querying fs_stats for wcc_smp...", c)
 			e = dbmap.SelectOne(&wccStats, `select * from fs_stats where method = ? and fields = ? and tab = ?`,
-				"standardization", "corl", "wcc_trn")
+				"standardization", "corl", "wcc_smp")
 			if e != nil {
 				if sql.ErrNoRows != e {
 					log.Printf(`failed to query fs_stats: %+v`, e)
@@ -1934,7 +1934,7 @@ func getPcalJobs() (jobs []*pcaljob, e error) {
 	return
 }
 
-func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *wccTrnDBJob) {
+func sampWcc(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *wccSmpDBJob) {
 	defer func() {
 		wg.Done()
 		<-*wf
@@ -1945,8 +1945,8 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 	span := conf.Args.Sampler.CorlSpan
 	syear := conf.Args.Sampler.CorlStartYear
 	portion := conf.Args.Sampler.CorlPortion
-	output := func(fin int, wccs []*model.WccTrn) {
-		out <- &wccTrnDBJob{
+	output := func(fin int, wccs []*model.WccSmp) {
+		out <- &wccSmpDBJob{
 			stock: stock,
 			fin:   fin,
 			wccs:  wccs,
@@ -1980,7 +1980,7 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 	}
 	maxk := int(maxKlid)
 	if maxk+1 < prior {
-		log.Printf("%s insufficient data for wcc_trn sampling: got %d, prior of %d required",
+		log.Printf("%s insufficient data for wcc sampling: got %d, prior of %d required",
 			code, maxk+1, prior)
 		output(1, nil)
 		return
@@ -2003,9 +2003,9 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 			start = prior - shift
 		}
 		if _, e := dbmap.Select(&smpklids,
-			`select distinct klid from wcc_trn where code = ?`,
+			`select distinct klid from wcc_smp where code = ?`,
 			code); e != nil {
-			log.Warnf("#%d %s failed to query klid from wcc_trn: %+v", c, code, e)
+			log.Warnf("#%d %s failed to query klid from wcc_smp: %+v", c, code, e)
 			return repeat.HintTemporary(e)
 		}
 		return nil
@@ -2014,7 +2014,7 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 	}
 	targetNum := int(float64(maxk+1) * portion)
 	if targetNum == 0 {
-		log.Printf("%s insufficient data for wcc_trn sampling", code)
+		log.Printf("%s insufficient data for wcc sampling", code)
 		output(1, nil)
 		return
 	}
@@ -2059,7 +2059,7 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 	}
 
 	if len(klids) == 0 {
-		log.Printf("%s insufficient data for wcc_trn sampling", code)
+		log.Printf("%s insufficient data for wcc sampling", code)
 		return
 	}
 	if len(klids) < targetNum {
@@ -2069,10 +2069,10 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 	log.Printf("%s selected %d/%d klids from kline_d_b", code, targetNum, len(klids))
 	for i, idx := range sidx {
 		klid := klids[idx]
-		var wccs []*model.WccTrn
+		var wccs []*model.WccSmp
 		if ok := retry(func(c int) (e error) {
 			r := false
-			r, wccs, e = sampWccTrnAt(stock, klid)
+			r, wccs, e = sampWccAt(stock, klid)
 			if e != nil {
 				if r {
 					log.Printf("%s klid(%d) retrying %d...", stock.Code, klid, c+1)
@@ -2093,7 +2093,7 @@ func sampWccTrn(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *
 }
 
 //klid is not included in target corl span
-func sampWccTrnAt(stock *model.Stock, klid int) (retry bool, wccs []*model.WccTrn, e error) {
+func sampWccAt(stock *model.Stock, klid int) (retry bool, wccs []*model.WccSmp, e error) {
 	span := conf.Args.Sampler.CorlSpan
 	shift := conf.Args.Sampler.WccMaxShift
 	prior := conf.Args.Sampler.CorlPrior
@@ -2129,7 +2129,7 @@ func sampWccTrnAt(stock *model.Stock, klid int) (retry bool, wccs []*model.WccTr
 		return
 	}
 	if len(klhist) < prior+shift+span {
-		log.Warnf("%s insufficient data for wcc_trn sampling at klid %d: %d, requiring %d",
+		log.Warnf("%s insufficient data for wcc sampling at klid %d: %d, requiring %d",
 			code, klid, len(klhist), prior+shift+span)
 		return
 	}
@@ -2153,19 +2153,19 @@ func sampWccTrnAt(stock *model.Stock, klid int) (retry bool, wccs []*model.WccTr
 			lrs[i-shift-prior] = k.Close.Float64
 		}
 	}
-	if retry, wccs, e = sampWccTrnWithTab("kline_d_b_lr", code, klid, skl, dates, lrs); e != nil {
+	if retry, wccs, e = sampWccWithTab("kline_d_b_lr", code, klid, skl, dates, lrs); e != nil {
 		return
 	}
-	var wccsIdx []*model.WccTrn
-	if retry, wccsIdx, e = sampWccTrnWithTab("index_d_n_lr", code, klid, skl, dates, lrs); e != nil {
+	var wccsIdx []*model.WccSmp
+	if retry, wccsIdx, e = sampWccWithTab("index_d_n_lr", code, klid, skl, dates, lrs); e != nil {
 		return
 	}
 	wccs = append(wccs, wccsIdx...)
 	return
 }
 
-func sampWccTrnWithTab(table, code string, klid int, skl *model.TradeDataLogRtn,
-	dates []string, lrs []float64) (retry bool, wccs []*model.WccTrn, e error) {
+func sampWccWithTab(table, code string, klid int, skl *model.TradeDataLogRtn,
+	dates []string, lrs []float64) (retry bool, wccs []*model.WccSmp, e error) {
 	prior := conf.Args.Sampler.CorlPrior
 	minReq := conf.Args.Sampler.PriorLength
 	shift := conf.Args.Sampler.WccMaxShift
@@ -2278,7 +2278,7 @@ func sampWccTrnWithTab(table, code string, klid int, skl *model.TradeDataLogRtn,
 			return false, wccs, err
 		}
 		dt, tm := util.TimeStr()
-		w := &model.WccTrn{
+		w := &model.WccSmp{
 			Code:    code,
 			Klid:    skl.Klid,
 			Date:    skl.Date,
@@ -2300,7 +2300,7 @@ func sampWccTrnWithTab(table, code string, klid int, skl *model.TradeDataLogRtn,
 	return
 }
 
-func goSaveWccTrn(chwcc chan *wccTrnDBJob, suc chan string, total int) (wg *sync.WaitGroup) {
+func goSaveWccSmp(chwcc chan *wccSmpDBJob, suc chan string, total int) (wg *sync.WaitGroup) {
 	wg = new(sync.WaitGroup)
 	wg.Add(1)
 	go func() {
@@ -2310,13 +2310,13 @@ func goSaveWccTrn(chwcc chan *wccTrnDBJob, suc chan string, total int) (wg *sync
 		for w := range chwcc {
 			code := w.stock.Code
 			if w.fin < 0 {
-				log.Printf("%s failed samping wcc_trn", code)
+				log.Printf("%s failed samping wcc", code)
 			} else if w.fin == 0 && len(w.wccs) > 0 {
 				w1 := w.wccs[0]
-				e := saveWccTrn(w.wccs...)
+				e := saveWccSmp(w.wccs...)
 				if e == nil {
 					counter[code] += len(w.wccs)
-					log.Debugf("%s %d wcc_trn saved, start date:%s", code, len(w.wccs), w1.Date)
+					log.Debugf("%s %d wcc_smp saved, start date:%s", code, len(w.wccs), w1.Date)
 				} else {
 					log.Panicf("%s %s db operation error:%+v", code, w1.Date, e)
 				}
@@ -2333,27 +2333,27 @@ func goSaveWccTrn(chwcc chan *wccTrnDBJob, suc chan string, total int) (wg *sync
 	return
 }
 
-// saveWccTrn update existing wcc_trn data or insert new ones in database.
-func saveWccTrn(ws ...*model.WccTrn) (err error) {
+// saveWccSmp update existing wcc_smp data or insert new ones in database.
+func saveWccSmp(ws ...*model.WccSmp) (err error) {
 	if len(ws) == 0 {
 		return nil
 	}
 	code := ws[0].Code
 	valueStrings := make([]string, 0, len(ws))
 	valueArgs := make([]interface{}, 0, len(ws)*9)
-	for _, e := range ws {
+	for _, el := range ws {
 		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?)")
-		valueArgs = append(valueArgs, e.Code)
-		valueArgs = append(valueArgs, e.Klid)
-		valueArgs = append(valueArgs, e.Date)
-		valueArgs = append(valueArgs, e.Rcode)
-		valueArgs = append(valueArgs, e.Corl)
-		valueArgs = append(valueArgs, e.MinDiff)
-		valueArgs = append(valueArgs, e.MaxDiff)
-		valueArgs = append(valueArgs, e.Udate)
-		valueArgs = append(valueArgs, e.Utime)
+		valueArgs = append(valueArgs, el.Code)
+		valueArgs = append(valueArgs, el.Klid)
+		valueArgs = append(valueArgs, el.Date)
+		valueArgs = append(valueArgs, el.Rcode)
+		valueArgs = append(valueArgs, el.Corl)
+		valueArgs = append(valueArgs, el.MinDiff)
+		valueArgs = append(valueArgs, el.MaxDiff)
+		valueArgs = append(valueArgs, el.Udate)
+		valueArgs = append(valueArgs, el.Utime)
 	}
-	stmt := fmt.Sprintf("INSERT INTO wcc_trn (code,klid,date,rcode,corl,"+
+	stmt := fmt.Sprintf("INSERT INTO wcc_smp (code,klid,date,rcode,corl,"+
 		"min_diff,max_diff,udate,utime) VALUES %s "+
 		"on duplicate key update corl=values(corl), min_diff=values(min_diff),"+
 		"max_diff=values(max_diff),udate=values(udate),utime=values(utime)",
@@ -2367,13 +2367,13 @@ func saveWccTrn(ws ...*model.WccTrn) (err error) {
 			if strings.Contains(err.Error(), "Deadlock") {
 				continue
 			} else {
-				return errors.Wrap(errors.WithStack(err), code+": failed to bulk update wcc_trn")
+				return errors.Wrap(errors.WithStack(err), code+": failed to bulk update wcc_smp")
 			}
 		}
 		break
 	}
 	if rt >= retry {
-		return errors.Wrap(err, code+": failed to bulk update wcc_trn")
+		return errors.Wrap(err, code+": failed to bulk update wcc_smp")
 	}
 	return nil
 }

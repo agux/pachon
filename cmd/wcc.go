@@ -62,7 +62,7 @@ var wccCmd = &cobra.Command{
 
 var updateWccCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Update fields in the wcc_trn table.",
+	Short: "Update fields in the wcc_smp table.",
 	Run: func(cmd *cobra.Command, args []string) {
 		sampler.UpdateWcc()
 	},
@@ -70,7 +70,7 @@ var updateWccCmd = &cobra.Command{
 
 var stzWccCmd = &cobra.Command{
 	Use:   "stz",
-	Short: "Standardize corl value in the wcc_trn table.",
+	Short: "Standardize corl value in the wcc_smp table.",
 	Run: func(cmd *cobra.Command, args []string) {
 		sampler.StzWcc()
 	},

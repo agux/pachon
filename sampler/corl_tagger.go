@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/agux/pachon/conf"
+	"github.com/agux/pachon/util"
 	"github.com/ssgreg/repeat"
 
 	"github.com/pkg/errors"
@@ -25,16 +26,26 @@ type tagJob struct {
 }
 
 const (
+	XcorlSmp CorlTab = "xcorl_smp"
 	//XcorlTrn Cross Correlation Training
 	XcorlTrn CorlTab = "xcorl_trn"
 	//WccTrn Warping Correlation Coefficient Training
 	WccTrn CorlTab = "wcc_trn"
+	WccSmp CorlTab = "wcc_smp"
 )
 
-//TagCorlTrn tags the sampled correlation training table (such as xcorl_trn or wcc_trn) data
-//with specified flag as prefix by randomly and evenly selecting untagged samples.
-func TagCorlTrn(table CorlTab, flag string, erase bool) (e error) {
+//TagCorlTrn create tags from the correlation sample table (such as xcorl_smp or wcc_smp)
+//and transfers tagged sets to the final table (such as xcorl_trn or wcc_trn),
+//by randomly and evenly selecting untagged samples based on corl score.
+func TagCorlTrn(table CorlTab, flag string) (e error) {
 	log.Printf("tagging %v for dataset %s...", table, flag)
+	var otab CorlTab
+	switch table {
+	case XcorlTrn:
+		otab = XcorlSmp
+	case WccTrn:
+		otab = WccSmp
+	}
 	startno := 0
 	vflag := ""
 	bsize := 0
@@ -48,26 +59,22 @@ func TagCorlTrn(table CorlTab, flag string, erase bool) (e error) {
 	default:
 		log.Panicf("unsupported flag: %s", flag)
 	}
-	if erase {
-		// clear already tagged data
-		log.Printf("cleansing existing %s tag...", vflag)
-		usql := fmt.Sprintf(`update %v set flag = null, bno=null where flag = ?`, table)
-		_, e = dbmap.Exec(usql, vflag)
-		if e != nil {
-			return errors.WithStack(e)
-		}
-	} else {
-		log.Info("querying max bno from wcc_trn...")
-		// load existent max tag number
-		q := "SELECT  " +
-			"    MAX(distinct bno) AS max_bno " +
-			"FROM " +
-			"    wcc_trn " +
-			"WHERE " +
-			"    flag = ?"
+	log.Infof("querying max bno from wcc_trn with flag %s...", vflag)
+	// load existent max tag number
+	q := fmt.Sprintf(
+		"SELECT  "+
+			"    MAX(distinct bno) AS max_bno "+
+			"FROM "+
+			"    %s "+
+			"WHERE "+
+			"    flag = ?",
+		table)
+	if e = try(func(c int) error {
 		sno, e := dbmap.SelectNullInt(q, vflag)
 		if e != nil {
-			return errors.WithStack(e)
+			e = errors.Wrapf(e, "#%d failed to query max bno from %s with flag %s", c, table, vflag)
+			log.Error(e)
+			return repeat.HintTemporary(e)
 		}
 		if sno.Valid {
 			startno = int(sno.Int64)
@@ -75,12 +82,15 @@ func TagCorlTrn(table CorlTab, flag string, erase bool) (e error) {
 		} else {
 			log.Printf("no existing data for %s set. batch no will be starting from %d", vflag, startno+1)
 		}
+		return nil
+	}); e != nil {
+		return errors.WithStack(e)
 	}
 	// tag group * batch_size of target data from untagged records randomly and evenly
 	log.Println("loading untagged records...")
-	untagged, e := getUntaggedCorls(table)
+	untagged, e := getUUID(otab)
 	if e != nil {
-		return e
+		return errors.WithStack(e)
 	}
 	total := len(untagged)
 	log.Printf("total of untagged records: %d", total)
@@ -152,6 +162,17 @@ func TagCorlTrn(table CorlTab, flag string, erase bool) (e error) {
 	return nil
 }
 
+func try(op func(c int) error) error {
+	return repeat.Repeat(
+		repeat.FnWithCounter(op),
+		repeat.StopOnSuccess(),
+		repeat.LimitMaxTries(conf.Args.DefaultRetry),
+		repeat.WithDelay(
+			repeat.FullJitterBackoff(5*time.Second).WithMaxDelay(30*time.Second).Set(),
+		),
+	)
+}
+
 func collectTagJob(ngrps int, wgr *sync.WaitGroup, chr chan *tagJob) {
 	defer wgr.Done()
 	i := 0
@@ -172,54 +193,95 @@ func collectTagJob(ngrps int, wgr *sync.WaitGroup, chr chan *tagJob) {
 func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan *tagJob) {
 	defer wg.Done()
 	var e error
+	var otab CorlTab
+	switch table {
+	case XcorlTrn:
+		otab = XcorlSmp
+	case WccTrn:
+		otab = WccSmp
+	}
+	ofields := `code, date, klid, rcode, corl_stz`
+	fields := `flag, bno, code, date, klid, rcode, corl_stz, udate, utime`
 	for j := range chjob {
-		var args []interface{}
+		var args, uuids []interface{}
 		strg := "?" + strings.Repeat(",?", len(j.uuids)-1)
-		args = append(args, j.flag, j.bno)
+		ud, ut := util.TimeStr()
+		args = append(args, j.flag, j.bno, ud, ut)
 		for _, el := range j.uuids {
 			args = append(args, el)
+			uuids = append(uuids, el)
 		}
 		log.Printf("tagging %s,%d size: %d", j.flag, j.bno, len(j.uuids))
-		op := func(c int) (e error) {
+		if e = try(func(c int) (e error) {
 			if _, e = dbmap.Exec(
-				fmt.Sprintf(`update %v set flag = ?, bno = ? where uuid in (%s)`, table, strg), args...,
+				fmt.Sprintf(`insert into %v (%s) (select (?, ?, %s, ?, ?) from %v where uuid in (%s))`,
+					table, fields, ofields, otab, strg),
+				args...,
 			); e != nil {
-				e = errors.Wrapf(e, "failed to update flag %s,%d, retrying %d...", j.flag, j.bno, c+1)
+				e = errors.Wrapf(e, "failed to flag [%s,%d], retrying %d...", j.flag, j.bno, c+1)
 				log.Error(e)
 				return repeat.HintTemporary(e)
 			}
 			return
+		}); e != nil {
+			log.Fatalf("batch [%s, %d] failed: %+v", j.flag, j.bno, e)
+			chr <- j
+			continue
 		}
-		if e = repeat.Repeat(
-			repeat.FnWithCounter(op),
-			repeat.StopOnSuccess(),
-			repeat.LimitMaxTries(conf.Args.DefaultRetry),
-			repeat.WithDelay(
-				repeat.FullJitterBackoff(5*time.Second).WithMaxDelay(30*time.Second).Set(),
-			),
-		); e == nil {
+		log.Printf("removing sample table for [%s,%d], size: %d", j.flag, j.bno, len(j.uuids))
+		if e = try(func(c int) (e error) {
+			if _, e = dbmap.Exec(
+				fmt.Sprintf(`delete from %v where uuid in (%s))`, otab, strg),
+				uuids...,
+			); e != nil {
+				e = errors.Wrapf(e, "failed to remove sample data for [%s,%d], retrying %d...", j.flag, j.bno, c+1)
+				log.Error(e)
+				return repeat.HintTemporary(e)
+			}
+			return
+		}); e != nil {
+			log.Fatalf("batch [%s, %d] failed: %+v", j.flag, j.bno, e)
+		} else {
 			j.done = true
 		}
 		chr <- j
 	}
 }
 
-func getUntaggedCorls(table CorlTab) (uuids []int, e error) {
-	stmt, e := dbmap.Prepare(fmt.Sprintf(`select uuid from %v where flag is null order by corl`, table))
-	if e != nil {
+func getUUID(table CorlTab) (uuids []int, e error) {
+	if e := try(func(c int) error {
+		uuids = make([]int, 0, 2048)
+		stmt, e := dbmap.Prepare(fmt.Sprintf(`select uuid from %v order by corl`, table))
+		if e != nil {
+			e = errors.Wrapf(e, "#%d failed to prepare sql statement for %s", c, table)
+			log.Error(e)
+			return repeat.HintTemporary(e)
+		}
+		defer stmt.Close()
+		rows, e := stmt.Query()
+		if e != nil {
+			e = errors.Wrapf(e, "#%d failed to execute query for %s", c, table)
+			log.Error(e)
+			return repeat.HintTemporary(e)
+		}
+		defer rows.Close()
+		var uuid int
+		for rows.Next() {
+			if e = rows.Scan(&uuid); e != nil {
+				e = errors.Wrapf(e, "#%d failed to scan rows for %s", c, table)
+				log.Error(e)
+				return repeat.HintTemporary(e)
+			}
+			uuids = append(uuids, uuid)
+		}
+		if e = rows.Err(); e != nil {
+			e = errors.Wrapf(e, "#%d failed to scan rows for %s", c, table)
+			log.Error(e)
+			return repeat.HintTemporary(e)
+		}
+		return nil
+	}); e != nil {
 		return nil, errors.WithStack(e)
 	}
-	defer stmt.Close()
-	rows, e := stmt.Query()
-	if e != nil {
-		return nil, errors.WithStack(e)
-	}
-	defer rows.Close()
-	var uuid int
-	for rows.Next() {
-		rows.Scan(&uuid)
-		uuids = append(uuids, uuid)
-	}
-	e = rows.Err()
 	return
 }

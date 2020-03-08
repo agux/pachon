@@ -14,7 +14,6 @@ var (
 	sampleTargets []string
 	tagTargets    []string
 	tagSets       []string
-	eraseTag      bool
 )
 
 func init() {
@@ -24,8 +23,6 @@ func init() {
 		"specify sampling targets to tag. Valid targets include: kpts, xcorl, wcc")
 	sampleCmd.Flags().StringSliceVar(&tagSets, "sets", []string{"test", "train"},
 		"specify data sets to tag. Valid sets include: test, train")
-	sampleCmd.Flags().BoolVarP(&eraseTag, "erase", "e", false,
-		"specify whether to erase existing tags.")
 
 	sampleCmd.AddCommand(wccCmd)
 
@@ -90,26 +87,26 @@ var sampleCmd = &cobra.Command{
 				}
 			case "xcorl":
 				if ts {
-					e := sampler.TagCorlTrn(sampler.XcorlTrn, sampler.TestFlag, eraseTag)
+					e := sampler.TagCorlTrn(sampler.XcorlTrn, sampler.TestFlag)
 					if e != nil {
 						log.Println(e)
 					}
 				}
 				if tr {
-					e := sampler.TagCorlTrn(sampler.XcorlTrn, sampler.TrainFlag, eraseTag)
+					e := sampler.TagCorlTrn(sampler.XcorlTrn, sampler.TrainFlag)
 					if e != nil {
 						log.Println(e)
 					}
 				}
 			case "wcc":
 				if ts {
-					e := sampler.TagCorlTrn(sampler.WccTrn, sampler.TestFlag, eraseTag)
+					e := sampler.TagCorlTrn(sampler.WccTrn, sampler.TestFlag)
 					if e != nil {
 						log.Println(e)
 					}
 				}
 				if tr {
-					e := sampler.TagCorlTrn(sampler.WccTrn, sampler.TrainFlag, eraseTag)
+					e := sampler.TagCorlTrn(sampler.WccTrn, sampler.TrainFlag)
 					if e != nil {
 						log.Println(e)
 					}

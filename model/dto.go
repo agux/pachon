@@ -1941,8 +1941,8 @@ func (x *XCorlTrn) String() string {
 	return toJSONString(x)
 }
 
-//WccTrn represents Warping Correlation Coefficient training samples.
-type WccTrn struct {
+//WccSmp represents WCC samples table
+type WccSmp struct {
 	UUID    int
 	Code    string
 	Klid    int
@@ -1952,8 +1952,23 @@ type WccTrn struct {
 	CorlStz sql.NullFloat64 `db:"corl_stz"`
 	MinDiff float64         `db:"min_diff"`
 	MaxDiff float64         `db:"max_diff"`
-	Flag    sql.NullString
-	Bno     sql.NullInt64
+	Udate   sql.NullString
+	Utime   sql.NullString
+}
+
+func (x *WccSmp) String() string {
+	return toJSONString(x)
+}
+
+//WccTrn represents Warping Correlation Coefficient training/testing samples.
+type WccTrn struct {
+	Flag    string
+	BNO     int
+	Code    string
+	Klid    int
+	Date    string
+	Rcode   string
+	CorlStz sql.NullFloat64 `db:"corl_stz"`
 	Udate   sql.NullString
 	Utime   sql.NullString
 }
