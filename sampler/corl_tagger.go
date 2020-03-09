@@ -88,7 +88,7 @@ func TagCorlTrn(table CorlTab, flag string) (e error) {
 		return errors.WithStack(e)
 	}
 	// tag group * batch_size of target data from untagged records randomly and evenly
-	log.Println("loading untagged records...")
+	log.Printf("loading untagged records from %v ...", otab)
 	untagged, e := getUUID(otab)
 	if e != nil {
 		return errors.WithStack(e)
