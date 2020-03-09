@@ -12,6 +12,7 @@ import (
 	"github.com/agux/pachon/conf"
 	"github.com/agux/pachon/util"
 	"github.com/ssgreg/repeat"
+	"gopkg.in/gorp.v2"
 
 	"github.com/pkg/errors"
 )
@@ -211,14 +212,37 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 			args = append(args, el)
 			uuids = append(uuids, el)
 		}
-		log.Printf("tagging %s,%d size: %d", j.flag, j.bno, len(j.uuids))
-		q := fmt.Sprintf(
-			`insert into %v (%s) select ?, ?, %s, ?, ? from %v where uuid in (%s)`,
-			table, fields, ofields, otab, strg)
 		if e = try(func(c int) (e error) {
-			if _, e = dbmap.Exec(q, args...); e != nil {
-				e = errors.Wrapf(e, "#%d failed to flag [%s,%d], sql:%s", c, j.flag, j.bno, q)
+			var tx *gorp.Transaction
+			if tx, e = dbmap.Begin(); e != nil {
+				e = errors.Wrapf(e, "#%d failed to flag [%s,%d], unable to start transaction", c, j.flag, j.bno)
 				log.Error(e)
+				return repeat.HintTemporary(e)
+			}
+			log.Printf("tagging %s,%d size: %d", j.flag, j.bno, len(j.uuids))
+			q := fmt.Sprintf(
+				`insert into %v (%s) select ?, ?, %s, ?, ? from %v where uuid in (%s)`,
+				table, fields, ofields, otab, strg)
+			if _, e = tx.Exec(q, args...); e != nil {
+				if re := tx.Rollback(); re != nil {
+					log.Fatalf("failed to rollback: %+v", re)
+				}
+				e = errors.Wrapf(e, "#%d failed to insert %s [%s,%d], sql:%s", c, table, j.flag, j.bno, q)
+				log.Error(e)
+				return repeat.HintTemporary(e)
+			}
+			log.Debugf("removing sample table for [%s,%d], size: %d", j.flag, j.bno, len(j.uuids))
+			q = fmt.Sprintf(`delete from %v where uuid in (%s)`, otab, strg)
+			if _, e = tx.Exec(q, uuids...); e != nil {
+				if re := tx.Rollback(); re != nil {
+					log.Fatalf("failed to rollback: %+v", re)
+				}
+				e = errors.Wrapf(e, "#%d failed to remove %s data for [%s,%d], sql:%s", c, otab, j.flag, j.bno, q)
+				log.Error(e)
+				return repeat.HintTemporary(e)
+			}
+			if e = tx.Commit(); e != nil {
+				log.Fatalf("#%d failed to commit transaction for [%s,%d]: %+v", c, j.flag, j.bno, e)
 				return repeat.HintTemporary(e)
 			}
 			return
@@ -226,18 +250,6 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 			log.Fatalf("batch [%s, %d] failed: %+v", j.flag, j.bno, e)
 			chr <- j
 			continue
-		}
-		log.Debugf("removing sample table for [%s,%d], size: %d", j.flag, j.bno, len(j.uuids))
-		q = fmt.Sprintf(`delete from %v where uuid in (%s)`, otab, strg)
-		if e = try(func(c int) (e error) {
-			if _, e = dbmap.Exec(q, uuids...); e != nil {
-				e = errors.Wrapf(e, "#%d failed to remove sample data for [%s,%d], sql:%s", c, j.flag, j.bno, q)
-				log.Error(e)
-				return repeat.HintTemporary(e)
-			}
-			return
-		}); e != nil {
-			log.Fatalf("batch [%s, %d] failed: %+v", j.flag, j.bno, e)
 		} else {
 			j.done = true
 		}
