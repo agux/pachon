@@ -214,7 +214,7 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 		log.Printf("tagging %s,%d size: %d", j.flag, j.bno, len(j.uuids))
 		if e = try(func(c int) (e error) {
 			if _, e = dbmap.Exec(
-				fmt.Sprintf(`insert into %v (%s) (select (?, ?, %s, ?, ?) from %v where uuid in (%s))`,
+				fmt.Sprintf(`insert into %v (%s) select (?, ?, %s, ?, ?) from %v where uuid in (%s)`,
 					table, fields, ofields, otab, strg),
 				args...,
 			); e != nil {

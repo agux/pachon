@@ -3282,7 +3282,7 @@ CREATE TABLE `user_agents` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE `wcc_trn` (
+CREATE TABLE `wcc_smp` (
   `uuid` int NOT NULL AUTO_INCREMENT,
   `code` varchar(8) NOT NULL,
   `date` varchar(10) NOT NULL,
@@ -3292,14 +3292,26 @@ CREATE TABLE `wcc_trn` (
   `corl_stz` double DEFAULT NULL COMMENT 'standardized correlation',
   `min_diff` double DEFAULT NULL,
   `max_diff` double DEFAULT NULL,
-  `flag` varchar(2) DEFAULT NULL,
-  `bno` int DEFAULT NULL,
   `udate` varchar(10) DEFAULT NULL,
   `utime` varchar(8) DEFAULT NULL,
-  PRIMARY KEY (`uuid`),
-  KEY `wcc_trn_idx_02` (`code`,`klid`),
+  KEY `wcc_smp_idx_02` (`code`,`klid`),
+  KEY `wcc_smp_idx_01` (`uuid`,`corl`)
+) ENGINE=InnoDB AUTO_INCREMENT=588154854 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED;
+
+CREATE TABLE `wcc_trn` (
+  `flag` varchar(2) NOT NULL,
+  `bno` int NOT NULL,
+  `code` varchar(8) NOT NULL,
+  `date` varchar(10) NOT NULL,
+  `klid` int NOT NULL,
+  `rcode` varchar(8) NOT NULL,
+  `corl_stz` double DEFAULT NULL COMMENT 'standardized correlation',
+  `udate` varchar(10) DEFAULT NULL,
+  `utime` varchar(8) DEFAULT NULL,
   KEY `wcc_trn_idx_01` (`flag`,`bno`)
-) ENGINE=InnoDB AUTO_INCREMENT=31293265 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED
+/*!50100 PARTITION BY LINEAR HASH (`bno`)
+PARTITIONS 8192 */;
 
 CREATE TABLE `worst_rec` (
   `model` varchar(45) NOT NULL,
