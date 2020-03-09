@@ -216,8 +216,7 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 			`insert into %v (%s) select ?, ?, %s, ?, ? from %v where uuid in (%s)`,
 			table, fields, ofields, otab, strg)
 		if e = try(func(c int) (e error) {
-			if _, e = dbmap.Exec(q, args...,
-			); e != nil {
+			if _, e = dbmap.Exec(q, args...); e != nil {
 				e = errors.Wrapf(e, "#%d failed to flag [%s,%d], sql:%s", c, j.flag, j.bno, q)
 				log.Error(e)
 				return repeat.HintTemporary(e)
@@ -229,11 +228,9 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 			continue
 		}
 		log.Debugf("removing sample table for [%s,%d], size: %d", j.flag, j.bno, len(j.uuids))
+		q = fmt.Sprintf(`delete from %v where uuid in (%s)`, otab, strg)
 		if e = try(func(c int) (e error) {
-			if _, e = dbmap.Exec(
-				fmt.Sprintf(`delete from %v where uuid in (%s))`, otab, strg),
-				uuids...,
-			); e != nil {
+			if _, e = dbmap.Exec(q, uuids...); e != nil {
 				e = errors.Wrapf(e, "failed to remove sample data for [%s,%d], retrying %d...", j.flag, j.bno, c+1)
 				log.Error(e)
 				return repeat.HintTemporary(e)
