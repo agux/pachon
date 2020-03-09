@@ -231,7 +231,7 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 		q = fmt.Sprintf(`delete from %v where uuid in (%s)`, otab, strg)
 		if e = try(func(c int) (e error) {
 			if _, e = dbmap.Exec(q, uuids...); e != nil {
-				e = errors.Wrapf(e, "failed to remove sample data for [%s,%d], retrying %d...", j.flag, j.bno, c+1)
+				e = errors.Wrapf(e, "#%d failed to remove sample data for [%s,%d], sql:%s", c, j.flag, j.bno, q)
 				log.Error(e)
 				return repeat.HintTemporary(e)
 			}
