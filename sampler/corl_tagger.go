@@ -228,7 +228,7 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 			chr <- j
 			continue
 		}
-		log.Printf("removing sample table for [%s,%d], size: %d", j.flag, j.bno, len(j.uuids))
+		log.Debugf("removing sample table for [%s,%d], size: %d", j.flag, j.bno, len(j.uuids))
 		if e = try(func(c int) (e error) {
 			if _, e = dbmap.Exec(
 				fmt.Sprintf(`delete from %v where uuid in (%s))`, otab, strg),
