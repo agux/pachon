@@ -212,13 +212,13 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 			uuids = append(uuids, el)
 		}
 		log.Printf("tagging %s,%d size: %d", j.flag, j.bno, len(j.uuids))
+		q := fmt.Sprintf(
+			`insert into %v (%s) select ?, ?, %s, ?, ? from %v where uuid in (%s)`,
+			table, fields, ofields, otab, strg)
 		if e = try(func(c int) (e error) {
-			if _, e = dbmap.Exec(
-				fmt.Sprintf(`insert into %v (%s) select (?, ?, %s, ?, ?) from %v where uuid in (%s)`,
-					table, fields, ofields, otab, strg),
-				args...,
+			if _, e = dbmap.Exec(q, args...,
 			); e != nil {
-				e = errors.Wrapf(e, "failed to flag [%s,%d], retrying %d...", j.flag, j.bno, c+1)
+				e = errors.Wrapf(e, "#%d failed to flag [%s,%d], sql:%s", c, j.flag, j.bno, q)
 				log.Error(e)
 				return repeat.HintTemporary(e)
 			}
