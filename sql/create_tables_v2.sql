@@ -1383,7 +1383,7 @@ PARTITIONS 1024 */;
 
 CREATE TABLE `index_d_n_lr` (
   `code` varchar(8) NOT NULL,
-  `ym` int STORED NOT NULL COMMENT 'year month of the date',
+  `ym` int GENERATED ALWAYS AS (((year(`date`) * 100) + month(`date`))) STORED NOT NULL COMMENT 'year month of the date',
   `date` varchar(20) NOT NULL,
   `klid` int NOT NULL,
   `amount` double DEFAULT NULL,
@@ -1936,7 +1936,7 @@ PARTITIONS 2048 */;
 
 CREATE TABLE `kline_d_b_lr` (
   `code` varchar(8) NOT NULL,
-  `ym` int STORED NOT NULL COMMENT 'year month of the date',
+  `ym` int GENERATED ALWAYS AS (((year(`date`) * 100) + month(`date`))) STORED NOT NULL COMMENT 'year month of the date',
   `date` varchar(20) NOT NULL,
   `klid` int NOT NULL,
   `amount` double DEFAULT NULL,
@@ -3294,13 +3294,16 @@ CREATE TABLE `wcc_smp` (
   `max_diff` double DEFAULT NULL,
   `udate` varchar(10) DEFAULT NULL,
   `utime` varchar(8) DEFAULT NULL,
+  PRIMARY KEY (`uuid`),
   KEY `wcc_smp_idx_02` (`code`,`klid`),
-  KEY `wcc_smp_idx_01` (`uuid`,`corl`)
-) ENGINE=InnoDB AUTO_INCREMENT=588154854 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED;
+  KEY `wcc_smp_idx_01` (`corl`,`uuid`)
+) ENGINE=InnoDB AUTO_INCREMENT=588154854 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED
+/*!50100 PARTITION BY HASH (`uuid`)
+PARTITIONS 1024 */;
 
 CREATE TABLE `wcc_trn` (
-  `flag` varchar(2) NOT NULL,
   `bno` int NOT NULL,
+  `flag` varchar(2) NOT NULL,
   `code` varchar(8) NOT NULL,
   `date` varchar(10) NOT NULL,
   `klid` int NOT NULL,
@@ -3308,7 +3311,7 @@ CREATE TABLE `wcc_trn` (
   `corl_stz` double DEFAULT NULL COMMENT 'standardized correlation',
   `udate` varchar(10) DEFAULT NULL,
   `utime` varchar(8) DEFAULT NULL,
-  KEY `wcc_trn_idx_01` (`flag`,`bno`)
+  KEY `wcc_trn_idx_01` (`bno`,`flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED
 /*!50100 PARTITION BY LINEAR HASH (`bno`)
 PARTITIONS 8192 */;

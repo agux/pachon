@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/agux/pachon/conf"
+	"github.com/agux/pachon/model"
 	"github.com/agux/pachon/util"
 	"github.com/ssgreg/repeat"
 	"gopkg.in/gorp.v2"
@@ -201,17 +202,50 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 	case WccTrn:
 		otab = WccSmp
 	}
-	ofields := `code, date, klid, rcode, corl_stz`
-	fields := `flag, bno, code, date, klid, rcode, corl_stz, udate, utime`
+	ofields := []string{"code", "date", "klid", "rcode", "corl_stz"}
+	fields := []string{"flag", "bno", "code", "date", "klid", "rcode", "corl_stz", "udate", "utime"}
 	for j := range chjob {
-		var args, uuids []interface{}
+		var uuids []interface{}
 		strg := "?" + strings.Repeat(",?", len(j.uuids)-1)
-		ud, ut := util.TimeStr()
-		args = append(args, j.flag, j.bno, ud, ut)
 		for _, el := range j.uuids {
-			args = append(args, el)
 			uuids = append(uuids, el)
 		}
+		//insert-select sql statement runs very slow with partitioned wcc_trn table,
+		//possible cause is scanning over all partitions, as of MySQL v8.0.18
+		var rows []*model.WccTrn
+		if e = try(func(c int) (e error) {
+			q := fmt.Sprintf(
+				`select %s from %v where uuid in (%s)`,
+				strings.Join(ofields, ","), otab, strg)
+			if _, e = dbmap.Select(&rows, q, uuids...); e != nil {
+				e = errors.Wrapf(e, "#%d batch [%s,%d] failed to query from %v, sql: %s",
+					c, j.flag, j.bno, otab, q)
+				log.Error(e)
+				return repeat.HintTemporary(e)
+			}
+			return
+		}); e != nil {
+			log.Fatalf("batch [%s, %d] failed: %+v", j.flag, j.bno, e)
+			chr <- j
+			continue
+		}
+
+		holder := "(?" + strings.Repeat(",?", len(fields)-1) + ")"
+		holders := holder + strings.Repeat(", "+holder, len(rows)-1)
+		var args []interface{}
+		ud, ut := util.TimeStr()
+		for _, row := range rows {
+			args = append(args, j.flag)
+			args = append(args, j.bno)
+			args = append(args, row.Code)
+			args = append(args, row.Date)
+			args = append(args, row.Klid)
+			args = append(args, row.Rcode)
+			args = append(args, row.CorlStz)
+			args = append(args, ud)
+			args = append(args, ut)
+		}
+
 		if e = try(func(c int) (e error) {
 			var tx *gorp.Transaction
 			if tx, e = dbmap.Begin(); e != nil {
@@ -220,9 +254,10 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 				return repeat.HintTemporary(e)
 			}
 			log.Printf("tagging %s,%d size: %d", j.flag, j.bno, len(j.uuids))
+
 			q := fmt.Sprintf(
-				`insert into %v (%s) select ?, ?, %s, ?, ? from %v where uuid in (%s)`,
-				table, fields, ofields, otab, strg)
+				`insert into %v (%s) values %s`,
+				table, strings.Join(fields, ","), holders)
 			if _, e = tx.Exec(q, args...); e != nil {
 				if re := tx.Rollback(); re != nil {
 					log.Fatalf("failed to rollback: %+v", re)
