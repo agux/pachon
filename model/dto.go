@@ -627,6 +627,7 @@ func (fin *FinReport) UnmarshalJSON(b []byte) error {
 //TradeDataBasic models the basic trading data such as OHLCV etc.
 type TradeDataBasic struct {
 	Code          string
+	YM            int `db:"-"`
 	Date          string
 	Klid          int
 	Open          float64
@@ -679,6 +680,7 @@ func (d *TradeDataLogRtn) String() string {
 //TradeDataMovAvg models Moving Average for the trading data.
 type TradeDataMovAvg struct {
 	Code   string
+	YM     int `db:"-"`
 	Date   string
 	Klid   int
 	Ma5    sql.NullFloat64
@@ -708,6 +710,7 @@ func (d *TradeDataMovAvg) String() string {
 //TradeDataMovAvgLogRtn models Moving Average Log Return for the trading data.
 type TradeDataMovAvgLogRtn struct {
 	Code      string
+	YM        int `db:"-"`
 	Date      string
 	Klid      int
 	Ma5       sql.NullFloat64

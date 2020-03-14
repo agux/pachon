@@ -16,6 +16,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,6 +28,7 @@ import (
 	"github.com/agux/pachon/global"
 	"github.com/agux/pachon/model"
 	"github.com/agux/pachon/util"
+	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
 	"github.com/ssgreg/repeat"
 	"google.golang.org/api/iterator"
@@ -235,33 +237,89 @@ func CalWcc(stocks *model.Stocks) {
 	}
 }
 
-//UpdateWcc updates corl and corl_stz column in the wcc_smp table based on sampled min_diff and max_diff
-func UpdateWcc() {
-	//remap [0, x] to [1, -1] (in opposite direction)
-	//formula: -1 * ((x-f1)/(t1-f1) * (t2-f2) + f2)
-	//simplified: (f1-x)/(t1-f1)*(t2-f2)-f2
-	log.Printf("querying max(max_diff) + min(min_diff)...")
-	max, e := dbmap.SelectFloat("select max(max_diff) + min(min_diff) from wcc_smp")
-	if e != nil {
-		log.Errorf("failed to query max(max_diff) + min(min_diff) for wcc: %+v", errors.WithStack(e))
+func getWccSmpMax(partitions []string) float64 {
+	var wg, wgr sync.WaitGroup
+	makechans := func() (ich chan string, och chan float64) {
+		ich = make(chan string, conf.Args.DBQueueCapacity)
+		och = make(chan float64, conf.Args.DBQueueCapacity)
 		return
 	}
-	//update corl stock by stock to avoid undo file explosion
-	var codes []string
-	_, e = dbmap.Select(&codes, `select distinct code from wcc_smp`)
-	if e != nil {
-		log.Errorf("failed to query codes in wcc_smp: %+v", errors.WithStack(e))
-		return
+	genop := func(col, partition string, och chan float64) func(c int) (e error) {
+		return func(c int) (e error) {
+			v, e := dbmap.SelectFloat(
+				fmt.Sprintf(`select %s from wcc_smp partition (%s)`, col, partition),
+			)
+			if e != nil {
+				e = errors.Wrapf(e, "#d failed to query %s in partition %s", c, col, partition)
+				log.Error(e)
+				return repeat.HintTemporary(e)
+			}
+			och <- v
+			return
+		}
 	}
-	log.Printf("max: %f, updating corl value for %d stocks...", max, len(codes))
-	// execute in paralell, but need to disable undo log in MySQL.
+	collect := func(col string, vals *[]float64, och chan float64) {
+		wgr.Add(1)
+		go func() {
+			defer wgr.Done()
+			c := 0.
+			total := float64(len(partitions))
+			for v := range och {
+				c++
+				*vals = append(*vals, v)
+				prog := c / total * 100.
+				log.Printf("%s %f has been collected, progress: %.3f%%", col, v, prog)
+			}
+		}()
+	}
+	pl := int(math.Round(float64(runtime.NumCPU()) * conf.Args.Sampler.CPUWorkloadRatio))
+	run := func(col string, ich chan string, och chan float64) {
+		for i := 0; i < pl; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for partition := range ich {
+					if e := try(genop(col, partition, och)); e != nil {
+						log.Panic(e)
+					}
+				}
+			}()
+		}
+		for _, p := range partitions {
+			ich <- p
+		}
+		close(ich)
+		wg.Wait()
+	}
+	var maxDiffs, minDiffs []float64
+
+	col := "max(max_diff)"
+	ich, och := makechans()
+	collect(col, &maxDiffs, och)
+	run(col, ich, och)
+	close(och)
+	wgr.Wait()
+	sort.Float64s(maxDiffs)
+
+	col = "min(min_diff)"
+	ich, och = makechans()
+	collect(col, &minDiffs, och)
+	run(col, ich, och)
+	close(och)
+	wgr.Wait()
+	sort.Float64s(minDiffs)
+
+	return maxDiffs[len(maxDiffs)-1] + minDiffs[0]
+}
+
+func updateCorl(partitions []string, max float64) {
 	var wg, wgr sync.WaitGroup
 	ich := make(chan string, conf.Args.DBQueueCapacity)
 	och := make(chan string, conf.Args.DBQueueCapacity)
-	genop := func(code string) func(c int) (e error) {
+	genop := func(partition string) func(c int) (e error) {
 		return func(c int) (e error) {
 			_, e = dbmap.Exec(`
-			UPDATE wcc_smp
+			UPDATE wcc_smp PARTITION (:pt)
 			SET
 				corl = CASE
 					WHEN min_diff < :mx - max_diff THEN - min_diff / :mx * 2 + 1
@@ -269,10 +327,9 @@ func UpdateWcc() {
 				END,
 				udate=DATE_FORMAT(now(), '%Y-%m-%d'), 
 				utime=DATE_FORMAT(now(), '%H:%i:%S')
-			WHERE code = :code
-			`, map[string]interface{}{"mx": max, "code": code})
+			`, map[string]interface{}{"mx": max, "pt": partition})
 			if e != nil {
-				e = errors.Wrapf(e, "#d failed to update corl for %s", c, code)
+				e = errors.Wrapf(e, "#d failed to update corl for partition %s", c, partition)
 				log.Error(e)
 				return repeat.HintTemporary(e)
 			}
@@ -283,11 +340,11 @@ func UpdateWcc() {
 	go func() {
 		defer wgr.Done()
 		c := 0.
-		total := float64(len(codes))
-		for code := range och {
+		total := float64(len(partitions))
+		for p := range och {
 			c++
 			prog := c / total * 100.
-			log.Printf("corl for %s has been updated, progress: %.3f%%", code, prog)
+			log.Printf("corl for partition %s has been updated, progress: %.3f%%", p, prog)
 		}
 	}()
 	pl := int(math.Round(float64(runtime.NumCPU()) * conf.Args.Sampler.CPUWorkloadRatio))
@@ -295,51 +352,218 @@ func UpdateWcc() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for code := range ich {
-				if e := repeat.Repeat(
-					repeat.FnWithCounter(genop(code)),
-					repeat.StopOnSuccess(),
-					repeat.LimitMaxTries(conf.Args.DefaultRetry),
-					repeat.WithDelay(repeat.FullJitterBackoff(2*time.Second).WithMaxDelay(30*time.Second).Set()),
-				); e != nil {
+			for part := range ich {
+				if e := try(genop(part)); e != nil {
 					log.Panic(e)
 				}
+				och <- part
 			}
 		}()
 	}
-	for _, c := range codes {
-		ich <- c
+	for _, p := range partitions {
+		ich <- p
 	}
 	close(ich)
 	wg.Wait()
 	close(och)
 	wgr.Wait()
+}
 
-	log.Printf("collecting corl stats...")
-	//TODO this sql takes more than an hour to complete
-	_, e = dbmap.Exec(`
-		INSERT INTO fs_stats (method, tab, fields, mean, std, vmax, udate, utime)
-		SELECT 'standardization', 'wcc_smp', 'corl', AVG(corl), STD(corl), ?, DATE_FORMAT(now(), '%Y-%m-%d'), DATE_FORMAT(now(), '%H:%i:%S') FROM wcc_smp
-		ON DUPLICATE KEY UPDATE mean=values(mean),std=values(std),vmax=values(vmax),udate=values(udate),utime=values(utime)
-	`, max)
-	if e != nil {
-		e = errors.WithStack(e)
-		log.Errorf("failed to collect corl stats: %+v", e)
-		return
+func queryCorlsByPartition(partitions []string) (corls []float64) {
+	var wg, wgr sync.WaitGroup
+	ich := make(chan string, conf.Args.DBQueueCapacity)
+	och := make(chan []float64, conf.Args.DBQueueCapacity)
+	genop := func(partition string) func(c int) (e error) {
+		return func(c int) (e error) {
+			var vals []float64
+			if _, e = dbmap.Select(&vals,
+				fmt.Sprintf(`select corl from wcc_smp partition (%s)`, partition),
+			); e != nil {
+				e = errors.Wrapf(e, "#d failed to query corl in partition %s", c, partition)
+				log.Error(e)
+				return repeat.HintTemporary(e)
+			}
+			log.Printf("number of corl for partition %s: %d", partition, len(vals))
+			och <- vals
+			return
+		}
+	}
+	wgr.Add(1)
+	go func() {
+		defer wgr.Done()
+		c := 0.
+		total := float64(len(partitions))
+		for vals := range och {
+			c++
+			corls = append(corls, vals...)
+			prog := c / total * 100.
+			log.Printf("%d collected, %d accumulated, progress: [%.3f%%]", len(vals), len(corls), prog)
+		}
+	}()
+	pl := int(math.Round(float64(runtime.NumCPU()) * conf.Args.Sampler.CPUWorkloadRatio))
+	for i := 0; i < pl; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for partition := range ich {
+				if e := try(genop(partition)); e != nil {
+					log.Panic(e)
+				}
+			}
+		}()
+	}
+	for _, p := range partitions {
+		ich <- p
 	}
 
-	StzWcc(codes...)
+	close(ich)
+	wg.Wait()
+	close(och)
+	wgr.Wait()
+
+	return
+}
+
+//UpdateWcc updates corl and corl_stz column in the wcc_smp table based on sampled min_diff and max_diff
+func UpdateWcc() {
+	log.Printf("querying partitions for wcc_smp table...")
+	var partitions []string
+	var e error
+	if e = try(func(c int) error {
+		if partitions, e = util.GetPartitionsFor(conf.Args.Database.Schema, "wcc_smp", true); e != nil {
+			e = errors.Wrapf(e, "#d failed to query partitions for wcc_smp table", c)
+			log.Error(e)
+			return repeat.HintTemporary(e)
+		}
+		return nil
+	}); e != nil {
+		log.Panic(e)
+	}
+	log.Printf("wcc_smp has %d partitions", len(partitions))
+	//remap [0, x] to [1, -1] (in opposite direction)
+	//formula: -1 * ((x-f1)/(t1-f1) * (t2-f2) + f2)
+	//simplified: (f1-x)/(t1-f1)*(t2-f2)-f2
+	//operate wcc_smp table by concurrent sql execution on partitions
+	log.Printf("querying max(max_diff) + min(min_diff)...")
+	max := getWccSmpMax(partitions)
+	if e != nil {
+		log.Errorf("failed to query max(max_diff) + min(min_diff) for wcc: %+v", errors.WithStack(e))
+		return
+	}
+	log.Printf("wcc_smp max: %f", max)
+
+	//update corl by partition in parallel, need to disable undo log in MySQL.
+	log.Print("updating corl for wcc_smp...")
+	updateCorl(partitions, max)
+
+	log.Printf("collecting corl stats...")
+	//this sql takes more than an hour to complete. Can we do this by partitions?
+	corls := queryCorlsByPartition(partitions)
+	var avg, std float64
+	if avg, e = stats.Mean(corls); e != nil {
+		log.Panicf("failed to calculate mean for corls: %+v", e)
+	}
+	if std, e = stats.StandardDeviation(corls); e != nil {
+		log.Panicf("failed to calculate std for corls: %+v", e)
+	}
+
+	if e = try(func(c int) (e error) {
+		if _, e = dbmap.Exec(`
+			INSERT INTO fs_stats (method, tab, fields, mean, std, vmax, udate, utime)
+			VALUES (
+				'standardization', 'wcc_smp', 'corl', ?, ?, ?, 
+				DATE_FORMAT(now(), '%Y-%m-%d'), DATE_FORMAT(now(), '%H:%i:%S')
+			ON DUPLICATE KEY UPDATE 
+				mean=values(mean),std=values(std),vmax=values(vmax),
+				udate=values(udate),utime=values(utime)
+		`, avg, std, max); e != nil {
+			e = errors.Wrapf(e, "#%d failed to insert corl stats")
+			log.Error(e)
+			return repeat.HintTemporary(e)
+		}
+		return
+	}); e != nil {
+		log.Panicf("failed to collect corl stats: %+v", e)
+	}
+
+	StzWcc(partitions...)
+}
+
+func runByPartitions(
+	partitions []string,
+	table string,
+	runner func(partition string, result interface{}) func(c int) (e error),
+) (result []interface{}, e error) {
+	if len(partitions) == 0 {
+		if e = try(func(c int) error {
+			if partitions, e = util.GetPartitionsFor(conf.Args.Database.Schema, table, true); e != nil {
+				e = errors.Wrapf(e, "#d failed to query partitions for %s table", c, table)
+				log.Error(e)
+				return repeat.HintTemporary(e)
+			}
+			return nil
+		}); e != nil {
+			log.Panic(e)
+		}
+	}
+	log.Printf("%s partitions: %d, mean: %f std: %f, vmax: %f", table, len(partitions))
+	//execute in paralell. But needed to disable undo log in MySQL.
+	var wg, wgr sync.WaitGroup
+	ich := make(chan string, conf.Args.DBQueueCapacity)
+	och := make(chan map[string]interface{}, conf.Args.DBQueueCapacity)
+	wgr.Add(1)
+	go func() {
+		defer wgr.Done()
+		c := 0.
+		total := float64(len(partitions))
+		for m := range och {
+			c++
+			prog := c / total * 100.
+			part := m["partition"]
+			result = append(result, m["result"])
+			log.Printf("partition %s has been processed, progress: %.3f%%", part, prog)
+		}
+	}()
+	pl := int(math.Round(float64(runtime.NumCPU()) * conf.Args.Sampler.CPUWorkloadRatio))
+	for i := 0; i < pl; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for part := range ich {
+				var result interface{}
+				if e = try(runner(part, &result)); e != nil {
+					log.Panic(e)
+				}
+				m := make(map[string]interface{})
+				m["partition"] = part
+				m["result"] = result
+				och <- m
+			}
+		}()
+	}
+	for _, p := range partitions {
+		ich <- p
+	}
+	close(ich)
+	wg.Wait()
+	close(och)
+	wgr.Wait()
+	return
 }
 
 //StzWcc standardizes wcc_smp corl value and updates corl_stz field in the table.
-func StzWcc(codes ...string) (e error) {
+func StzWcc(partitions ...string) (e error) {
 	log.Printf("standardizing...")
-	if codes == nil {
-		log.Printf("querying codes in wcc_smp table...")
-		_, e = dbmap.Select(&codes, `select distinct code from wcc_smp`)
-		if e != nil {
-			log.Printf("failed to query codes in wcc_smp: %+v", errors.WithStack(e))
-			return
+	if partitions == nil {
+		if e = try(func(c int) error {
+			if partitions, e = util.GetPartitionsFor(conf.Args.Database.Schema, "wcc_smp", true); e != nil {
+				e = errors.Wrapf(e, "#d failed to query partitions for wcc_smp table", c)
+				log.Error(e)
+				return repeat.HintTemporary(e)
+			}
+			return nil
+		}); e != nil {
+			log.Panic(e)
 		}
 	}
 	var cstat struct {
@@ -351,23 +575,22 @@ func StzWcc(codes ...string) (e error) {
 		log.Printf("failed to query corl stats: %+v", errors.WithStack(e))
 		return
 	}
-	log.Printf("%d codes, mean: %f std: %f, vmax: %f", len(codes), cstat.Mean, cstat.Std, cstat.Vmax)
+	log.Printf("partitions: %d, mean: %f std: %f, vmax: %f", len(partitions), cstat.Mean, cstat.Std, cstat.Vmax)
 	//execute in paralell. But needed to disable undo log in MySQL.
 	var wg, wgr sync.WaitGroup
 	ich := make(chan string, conf.Args.DBQueueCapacity)
 	och := make(chan string, conf.Args.DBQueueCapacity)
-	genop := func(code string) func(c int) (e error) {
+	genop := func(partition string) func(c int) (e error) {
 		return func(c int) (e error) {
 			_, e = dbmap.Exec(`
-				UPDATE wcc_smp w
+				UPDATE wcc_smp w PARTITION (?)
 				SET 
 					corl_stz = (corl - ?) / ?,
 					udate=DATE_FORMAT(now(), '%Y-%m-%d'), 
 					utime=DATE_FORMAT(now(), '%H:%i:%S')
-				WHERE code = ?
-			`, cstat.Mean, cstat.Std, code)
+			`, partition, cstat.Mean, cstat.Std)
 			if e != nil {
-				e = errors.Wrapf(e, "#d failed to standardize wcc corl for %s", c, code)
+				e = errors.Wrapf(e, "#d failed to standardize wcc corl for partition %s", c, partition)
 				log.Error(e)
 				return repeat.HintTemporary(e)
 			}
@@ -378,11 +601,11 @@ func StzWcc(codes ...string) (e error) {
 	go func() {
 		defer wgr.Done()
 		c := 0.
-		total := float64(len(codes))
-		for code := range och {
+		total := float64(len(partitions))
+		for part := range och {
 			c++
 			prog := c / total * 100.
-			log.Printf("corl for %s has been standardized, progress: %.3f%%", code, prog)
+			log.Printf("corl for partition %s has been standardized, progress: %.3f%%", part, prog)
 		}
 	}()
 	pl := int(math.Round(float64(runtime.NumCPU()) * conf.Args.Sampler.CPUWorkloadRatio))
@@ -390,20 +613,15 @@ func StzWcc(codes ...string) (e error) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for code := range ich {
-				if e := repeat.Repeat(
-					repeat.FnWithCounter(genop(code)),
-					repeat.StopOnSuccess(),
-					repeat.LimitMaxTries(conf.Args.DefaultRetry),
-					repeat.WithDelay(repeat.FullJitterBackoff(2*time.Second).WithMaxDelay(30*time.Second).Set()),
-				); e != nil {
+			for part := range ich {
+				if e = try(genop(part)); e != nil {
 					log.Panic(e)
 				}
 			}
 		}()
 	}
-	for _, c := range codes {
-		ich <- c
+	for _, p := range partitions {
+		ich <- p
 	}
 	close(ich)
 	wg.Wait()

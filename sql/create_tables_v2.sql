@@ -61,7 +61,7 @@ CREATE TABLE `cmpool` (
   `code` varchar(8) NOT NULL,
   `remarks` varchar(200) DEFAULT NULL,
   PRIMARY KEY (`seqno`,`code`)
-) ENGINE=InnoDB AUTO_INCREMENT=1277 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `code_map` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -73,7 +73,7 @@ CREATE TABLE `code_map` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `id_UNIQUE` (`id`),
   UNIQUE KEY `code_map_UNIQUE` (`f_src`,`f_code`,`t_src`,`t_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `em_d_b` (
   `code` varchar(8) NOT NULL,
@@ -3204,7 +3204,7 @@ CREATE TABLE `params` (
   `utime` varchar(8) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `params_idx_01` (`section`,`param`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `proxy_list` (
   `source` varchar(20) NOT NULL,
@@ -3297,8 +3297,8 @@ CREATE TABLE `wcc_smp` (
   PRIMARY KEY (`uuid`),
   KEY `wcc_smp_idx_02` (`code`,`klid`),
   KEY `wcc_smp_idx_01` (`corl`,`uuid`)
-) ENGINE=InnoDB AUTO_INCREMENT=588154854 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED
-/*!50100 PARTITION BY HASH (`uuid`)
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED
+/*!50100 PARTITION BY LINEAR HASH (`uuid`)
 PARTITIONS 1024 */;
 
 CREATE TABLE `wcc_trn` (

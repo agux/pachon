@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -293,39 +294,29 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 }
 
 func getUUID(table CorlTab) (uuids []int, e error) {
-	if e := try(func(c int) error {
-		uuids = make([]int, 0, 2048)
-		stmt, e := dbmap.Prepare(fmt.Sprintf(`select uuid from %v order by corl`, table))
-		if e != nil {
-			e = errors.Wrapf(e, "#%d failed to prepare sql statement for %s", c, table)
-			log.Error(e)
-			return repeat.HintTemporary(e)
-		}
-		defer stmt.Close()
-		rows, e := stmt.Query()
-		if e != nil {
-			e = errors.Wrapf(e, "#%d failed to execute query for %s", c, table)
-			log.Error(e)
-			return repeat.HintTemporary(e)
-		}
-		defer rows.Close()
-		var uuid int
-		for rows.Next() {
-			if e = rows.Scan(&uuid); e != nil {
-				e = errors.Wrapf(e, "#%d failed to scan rows for %s", c, table)
+	runner := func(partition string, result interface{}) func(c int) (e error) {
+		return func(c int) (e error) {
+			result = make([]*model.WccSmp, 0, 2048)
+			q := fmt.Sprintf(`select uuid, corl from %v partition (%s)`, table, partition)
+			if _, e = dbmap.Select(&result, q); e != nil {
+				e = errors.Wrapf(e, "#d failed to query %v uuid & corl for partition %s", c, table, partition)
 				log.Error(e)
 				return repeat.HintTemporary(e)
 			}
-			uuids = append(uuids, uuid)
+			return
 		}
-		if e = rows.Err(); e != nil {
-			e = errors.Wrapf(e, "#%d failed to scan rows for %s", c, table)
-			log.Error(e)
-			return repeat.HintTemporary(e)
-		}
-		return nil
-	}); e != nil {
-		return nil, errors.WithStack(e)
+	}
+	result, e := runByPartitions(nil, string(table), runner)
+	var records []*model.WccSmp
+	for _, r := range result {
+		records = append(records, r.([]*model.WccSmp)...)
+	}
+	sort.Slice(records, func(i, j int) bool {
+		ci, cj := records[i].Corl, records[j].Corl
+		return ci < cj
+	})
+	for _, r := range records {
+		uuids = append(uuids, r.UUID)
 	}
 	return
 }
