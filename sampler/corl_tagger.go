@@ -294,7 +294,7 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 }
 
 func getUUID(table CorlTab) (uuids []int, e error) {
-	runner := func(partition string, result interface{}) func(c int) (e error) {
+	runner := func(partition string, receiver chan<- interface{}) func(c int) (e error) {
 		return func(c int) (e error) {
 			var records []*model.WccSmp
 			q := fmt.Sprintf(`select uuid, corl from %v partition (%s)`, table, partition)
@@ -303,7 +303,7 @@ func getUUID(table CorlTab) (uuids []int, e error) {
 				log.Error(e)
 				return repeat.HintTemporary(e)
 			}
-			result = records
+			receiver <- records
 			return
 		}
 	}
@@ -312,10 +312,13 @@ func getUUID(table CorlTab) (uuids []int, e error) {
 	for _, r := range result {
 		records = append(records, r.([]*model.WccSmp)...)
 	}
+	log.Printf("total samples: %d", len(records))
+	log.Println("sorting samples by corl...")
 	sort.Slice(records, func(i, j int) bool {
 		ci, cj := records[i].Corl, records[j].Corl
 		return ci < cj
 	})
+	log.Println("sort complete. extracting UUID...")
 	for _, r := range records {
 		uuids = append(uuids, r.UUID)
 	}

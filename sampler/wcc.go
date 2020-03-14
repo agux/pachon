@@ -492,7 +492,7 @@ func UpdateWcc() {
 func runByPartitions(
 	partitions []string,
 	table string,
-	runner func(partition string, result interface{}) func(c int) (e error),
+	runner func(partition string, receiver chan<- interface{}) func(c int) (e error),
 ) (result []interface{}, e error) {
 	if len(partitions) == 0 {
 		if e = try(func(c int) error {
@@ -510,18 +510,24 @@ func runByPartitions(
 	//execute in paralell. But needed to disable undo log in MySQL.
 	var wg, wgr sync.WaitGroup
 	ich := make(chan string, conf.Args.DBQueueCapacity)
-	och := make(chan map[string]interface{}, conf.Args.DBQueueCapacity)
+	och := make(chan string, conf.Args.DBQueueCapacity)
+	rch := make(chan interface{}, conf.Args.DBQueueCapacity)
 	wgr.Add(1)
 	go func() {
 		defer wgr.Done()
 		c := 0.
 		total := float64(len(partitions))
-		for m := range och {
+		for part := range och {
 			c++
 			prog := c / total * 100.
-			part := m["partition"]
-			result = append(result, m["result"])
 			log.Printf("partition %s has been processed, progress: %.3f%%", part, prog)
+		}
+	}()
+	wgr.Add(1)
+	go func() {
+		defer wgr.Done()
+		for el := range rch {
+			result = append(result, el)
 		}
 	}()
 	pl := int(math.Round(float64(runtime.NumCPU()) * conf.Args.Sampler.CPUWorkloadRatio))
@@ -530,14 +536,10 @@ func runByPartitions(
 		go func() {
 			defer wg.Done()
 			for part := range ich {
-				var result interface{}
-				if e = try(runner(part, &result)); e != nil {
+				if e = try(runner(part, rch)); e != nil {
 					log.Panic(e)
 				}
-				m := make(map[string]interface{})
-				m["partition"] = part
-				m["result"] = result
-				och <- m
+				och <- part
 			}
 		}()
 	}
@@ -547,6 +549,7 @@ func runByPartitions(
 	close(ich)
 	wg.Wait()
 	close(och)
+	close(rch)
 	wgr.Wait()
 	return
 }
