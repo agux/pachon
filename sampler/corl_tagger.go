@@ -307,6 +307,7 @@ func getUUID(table CorlTab) (uuids []int, e error) {
 				log.Error(e)
 				return repeat.HintTemporary(e)
 			}
+			log.Printf("%v partition %s records: %d", table, partition, count)
 			records := make([]*sample, count)
 			q = fmt.Sprintf(`select uuid, corl from %v partition (%s)`, table, partition)
 			if _, e = dbmap.Select(&records, q); e != nil {
