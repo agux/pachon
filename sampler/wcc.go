@@ -250,7 +250,7 @@ func getWccSmpMax(partitions []string) float64 {
 				fmt.Sprintf(`select %s from wcc_smp partition (%s)`, col, partition),
 			)
 			if e != nil {
-				e = errors.Wrapf(e, "#d failed to query %s in partition %s", c, col, partition)
+				e = errors.Wrapf(e, "#%d failed to query %s in partition %s", c, col, partition)
 				log.Error(e)
 				return repeat.HintTemporary(e)
 			}
@@ -329,7 +329,7 @@ func updateCorl(partitions []string, max float64) {
 				utime=DATE_FORMAT(now(), '%H:%i:%S')
 			`, map[string]interface{}{"mx": max, "pt": partition})
 			if e != nil {
-				e = errors.Wrapf(e, "#d failed to update corl for partition %s", c, partition)
+				e = errors.Wrapf(e, "#%d failed to update corl for partition %s", c, partition)
 				log.Error(e)
 				return repeat.HintTemporary(e)
 			}
@@ -379,7 +379,7 @@ func queryCorlsByPartition(partitions []string) (corls []float64) {
 			if _, e = dbmap.Select(&vals,
 				fmt.Sprintf(`select corl from wcc_smp partition (%s)`, partition),
 			); e != nil {
-				e = errors.Wrapf(e, "#d failed to query corl in partition %s", c, partition)
+				e = errors.Wrapf(e, "#%d failed to query corl in partition %s", c, partition)
 				log.Error(e)
 				return repeat.HintTemporary(e)
 			}
@@ -431,7 +431,7 @@ func UpdateWcc() {
 	var e error
 	if e = try(func(c int) error {
 		if partitions, e = util.GetPartitionsFor(conf.Args.Database.Schema, "wcc_smp", true); e != nil {
-			e = errors.Wrapf(e, "#d failed to query partitions for wcc_smp table", c)
+			e = errors.Wrapf(e, "#%d failed to query partitions for wcc_smp table", c)
 			log.Error(e)
 			return repeat.HintTemporary(e)
 		}
@@ -497,7 +497,7 @@ func runByPartitions(
 	if len(partitions) == 0 {
 		if e = try(func(c int) error {
 			if partitions, e = util.GetPartitionsFor(conf.Args.Database.Schema, table, true); e != nil {
-				e = errors.Wrapf(e, "#d failed to query partitions for %s table", c, table)
+				e = errors.Wrapf(e, "#%d failed to query partitions for %s table", c, table)
 				log.Error(e)
 				return repeat.HintTemporary(e)
 			}
@@ -506,7 +506,7 @@ func runByPartitions(
 			log.Panic(e)
 		}
 	}
-	log.Printf("%s partitions: %d, mean: %f std: %f, vmax: %f", table, len(partitions))
+	log.Printf("%s has %d partitions", table, len(partitions))
 	//execute in paralell. But needed to disable undo log in MySQL.
 	var wg, wgr sync.WaitGroup
 	ich := make(chan string, conf.Args.DBQueueCapacity)
@@ -557,7 +557,7 @@ func StzWcc(partitions ...string) (e error) {
 	if partitions == nil {
 		if e = try(func(c int) error {
 			if partitions, e = util.GetPartitionsFor(conf.Args.Database.Schema, "wcc_smp", true); e != nil {
-				e = errors.Wrapf(e, "#d failed to query partitions for wcc_smp table", c)
+				e = errors.Wrapf(e, "#%d failed to query partitions for wcc_smp table", c)
 				log.Error(e)
 				return repeat.HintTemporary(e)
 			}
@@ -590,7 +590,7 @@ func StzWcc(partitions ...string) (e error) {
 					utime=DATE_FORMAT(now(), '%H:%i:%S')
 			`, partition, cstat.Mean, cstat.Std)
 			if e != nil {
-				e = errors.Wrapf(e, "#d failed to standardize wcc corl for partition %s", c, partition)
+				e = errors.Wrapf(e, "#%d failed to standardize wcc corl for partition %s", c, partition)
 				log.Error(e)
 				return repeat.HintTemporary(e)
 			}
@@ -2189,7 +2189,7 @@ func sampWcc(stock *model.Stock, wg *sync.WaitGroup, wf *chan int, out chan *wcc
 	if ok := retry(func(c int) (e error) {
 		maxKlid, e = dbmap.SelectInt(`select max(klid) from kline_d_b where code = ?`, code)
 		if e != nil {
-			log.Warnf(`#d %s failed to query max klid, %+v`, c, code, e)
+			log.Warnf(`#%d %s failed to query max klid, %+v`, c, code, e)
 			return repeat.HintTemporary(e)
 		}
 		return

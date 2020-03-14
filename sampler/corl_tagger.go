@@ -296,13 +296,14 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 func getUUID(table CorlTab) (uuids []int, e error) {
 	runner := func(partition string, result interface{}) func(c int) (e error) {
 		return func(c int) (e error) {
-			result = make([]*model.WccSmp, 0, 2048)
+			var records []*model.WccSmp
 			q := fmt.Sprintf(`select uuid, corl from %v partition (%s)`, table, partition)
-			if _, e = dbmap.Select(&result, q); e != nil {
-				e = errors.Wrapf(e, "#d failed to query %v uuid & corl for partition %s", c, table, partition)
+			if _, e = dbmap.Select(&records, q); e != nil {
+				e = errors.Wrapf(e, "#%d failed to query %v uuid & corl for partition %s", c, table, partition)
 				log.Error(e)
 				return repeat.HintTemporary(e)
 			}
+			result = records
 			return
 		}
 	}
