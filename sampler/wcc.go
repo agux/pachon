@@ -492,8 +492,8 @@ func UpdateWcc() {
 func runByPartitions(
 	partitions []string,
 	table string,
-	runner func(partition string, receiver chan<- interface{}) func(c int) (e error),
-) (result []interface{}, e error) {
+	runner func(partition string) func(c int) (e error),
+) (e error) {
 	if len(partitions) == 0 {
 		if e = try(func(c int) error {
 			if partitions, e = util.GetPartitionsFor(conf.Args.Database.Schema, table, true); e != nil {
@@ -511,7 +511,6 @@ func runByPartitions(
 	var wg, wgr sync.WaitGroup
 	ich := make(chan string, conf.Args.DBQueueCapacity)
 	och := make(chan string, conf.Args.DBQueueCapacity)
-	rch := make(chan interface{}, conf.Args.DBQueueCapacity)
 	wgr.Add(1)
 	go func() {
 		defer wgr.Done()
@@ -523,20 +522,13 @@ func runByPartitions(
 			log.Printf("partition %s has been processed, progress: %.3f%%", part, prog)
 		}
 	}()
-	wgr.Add(1)
-	go func() {
-		defer wgr.Done()
-		for el := range rch {
-			result = append(result, el)
-		}
-	}()
 	pl := int(math.Round(float64(runtime.NumCPU()) * conf.Args.Sampler.CPUWorkloadRatio))
 	for i := 0; i < pl; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for part := range ich {
-				if e = try(runner(part, rch)); e != nil {
+				if e = try(runner(part)); e != nil {
 					log.Panic(e)
 				}
 				och <- part
@@ -549,7 +541,6 @@ func runByPartitions(
 	close(ich)
 	wg.Wait()
 	close(och)
-	close(rch)
 	wgr.Wait()
 	return
 }
