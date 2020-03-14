@@ -294,10 +294,21 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 }
 
 func getUUID(table CorlTab) (uuids []int, e error) {
+	type sample struct {
+		UUID int
+		Corl float64
+	}
 	runner := func(partition string, receiver chan<- interface{}) func(c int) (e error) {
 		return func(c int) (e error) {
-			var records []*model.WccSmp
-			q := fmt.Sprintf(`select uuid, corl from %v partition (%s)`, table, partition)
+			var count int64
+			q := fmt.Sprintf(`select count(uuid) from %v partition (%s)`, table, partition)
+			if count, e = dbmap.SelectInt(q); e != nil {
+				e = errors.Wrapf(e, "#%d failed to count %v uuid for partition %s", c, table, partition)
+				log.Error(e)
+				return repeat.HintTemporary(e)
+			}
+			records := make([]*sample, count)
+			q = fmt.Sprintf(`select uuid, corl from %v partition (%s)`, table, partition)
 			if _, e = dbmap.Select(&records, q); e != nil {
 				e = errors.Wrapf(e, "#%d failed to query %v uuid & corl for partition %s", c, table, partition)
 				log.Error(e)
@@ -308,10 +319,11 @@ func getUUID(table CorlTab) (uuids []int, e error) {
 		}
 	}
 	result, e := runByPartitions(nil, string(table), runner)
-	var records []*model.WccSmp
+	var records []*sample
 	for _, r := range result {
-		records = append(records, r.([]*model.WccSmp)...)
+		records = append(records, r.([]*sample)...)
 	}
+	result = nil
 	log.Printf("total samples: %d", len(records))
 	log.Println("sorting samples by corl...")
 	sort.Slice(records, func(i, j int) bool {
@@ -322,5 +334,6 @@ func getUUID(table CorlTab) (uuids []int, e error) {
 	for _, r := range records {
 		uuids = append(uuids, r.UUID)
 	}
+	records = nil
 	return
 }
