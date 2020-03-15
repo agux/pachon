@@ -5,7 +5,6 @@ import (
 	"math"
 	"math/rand"
 	"runtime"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +12,8 @@ import (
 	"github.com/agux/pachon/conf"
 	"github.com/agux/pachon/model"
 	"github.com/agux/pachon/util"
+	"github.com/jfcg/sorty"
+	"github.com/lytics/ordpool"
 	"github.com/ssgreg/repeat"
 	"gopkg.in/gorp.v2"
 
@@ -341,14 +342,68 @@ func getUUID(table CorlTab) (uuids []int, e error) {
 
 	log.Printf("total samples: %d", len(records))
 	log.Println("sorting samples by corl...")
-	sort.Slice(records, func(i, j int) bool {
-		ci, cj := records[i].Corl, records[j].Corl
-		return ci < cj
-	})
-	log.Println("sort complete. extracting UUID...")
-	for _, r := range records {
-		uuids = append(uuids, r.UUID)
+	// native sort took about 11 min to sort 0.5 billion records.
+	// sort.Slice(records, func(i, j int) bool {
+	// 	ci, cj := records[i].Corl, records[j].Corl
+	// 	return ci < cj
+	// })
+
+	// using parallel sort lib
+	lsw := func(i, k, r, s int) bool {
+		if records[i].Corl < records[k].Corl {
+			if r != s {
+				records[r], records[s] = records[s], records[r]
+			}
+			return true
+		}
+		return false
 	}
-	records = nil
+	sorty.Sort3(len(records), lsw)
+	log.Println("sort complete. extracting UUID...")
+	// extract UUID in parallel and must preserve slice order
+	const SegSize = 4096
+	batch := int(math.Ceil(float64(len(records)) / float64(SegSize)))
+	collect := func(ch <-chan interface{}) {
+		for r := range ch {
+			uuids = append(uuids, r.([]int)...)
+		}
+	}
+
+	extract := func(input interface{}) (output interface{}, e error) {
+		seg := input.([]*sample)
+		var ret []int
+		for _, s := range seg {
+			ret = append(ret, s.UUID)
+		}
+		return ret, nil
+	}
+
+	numWorkers := int(math.Round(float64(runtime.NumCPU()) * conf.Args.Sampler.CPUWorkloadRatio))
+
+	o := ordpool.New(numWorkers, extract)
+	o.Start()
+
+	go collect(o.GetOutputCh())
+
+	workChan := o.GetInputCh()
+	for i := 0; i < batch; i++ {
+		count := len(records)
+		if count > SegSize {
+			workChan <- records[:SegSize]
+			records = records[SegSize:]
+		} else {
+			workChan <- records
+		}
+	}
+
+	o.Stop()
+	o.WaitForShutdown()
+
+	errs := o.GetErrs()
+	if len(errs) != 0 {
+		log.Panicf("failed to extract UUIDs: %+v", errs)
+	}
+
+	log.Printf("Finished extracting UUID. Records: %d", len(uuids))
 	return
 }

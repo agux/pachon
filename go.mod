@@ -12,7 +12,10 @@ require (
 	github.com/chromedp/chromedp v0.5.3
 	github.com/gchaincl/dotsql v1.0.0
 	github.com/go-sql-driver/mysql v1.5.0
+	github.com/jfcg/sorty v0.4.4
 	github.com/lxn/win v0.0.0-20191128105842-2da648fda5b4 // indirect
+	github.com/lytics/lifecycle v0.0.0-20130117214539-7b4c4028d422 // indirect
+	github.com/lytics/ordpool v0.0.0-20130426221837-8d833f097fe7
 	github.com/mailru/easyjson v0.7.1 // indirect
 	github.com/mattn/go-runewidth v0.0.8 // indirect
 	github.com/mjanda/go-dtw v0.0.0-20151228212638-82a6e976a117

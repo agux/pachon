@@ -477,7 +477,7 @@ func UpdateWcc() {
 				mean=values(mean),std=values(std),vmax=values(vmax),
 				udate=values(udate),utime=values(utime)
 		`, avg, std, max); e != nil {
-			e = errors.Wrapf(e, "#%d failed to insert corl stats")
+			e = errors.Wrapf(e, "#%d failed to insert corl stats", c)
 			log.Error(e)
 			return repeat.HintTemporary(e)
 		}
