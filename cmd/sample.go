@@ -71,7 +71,7 @@ var sampleCmd = &cobra.Command{
 						log.Printf("tagging kpts%d data for test set...", f)
 						e := sampler.TagTestSetByIndustry(f, conf.Args.Sampler.TestSetBatchSize)
 						if e != nil {
-							log.Println(e)
+							log.Fatal(e)
 						}
 					}
 				}
@@ -81,7 +81,7 @@ var sampleCmd = &cobra.Command{
 						log.Printf("tagging kpts%d data for training set, batch size: %d", f, bsize)
 						e := sampler.TagTrainingSetByScore(f, bsize)
 						if e != nil {
-							log.Println(e)
+							log.Fatal(e)
 						}
 					}
 				}
@@ -89,26 +89,26 @@ var sampleCmd = &cobra.Command{
 				if ts {
 					e := sampler.TagCorlTrn(sampler.XcorlTrn, sampler.TestFlag)
 					if e != nil {
-						log.Println(e)
+						log.Fatal(e)
 					}
 				}
 				if tr {
 					e := sampler.TagCorlTrn(sampler.XcorlTrn, sampler.TrainFlag)
 					if e != nil {
-						log.Println(e)
+						log.Fatal(e)
 					}
 				}
 			case "wcc":
 				if ts {
 					e := sampler.TagCorlTrn(sampler.WccTrn, sampler.TestFlag)
 					if e != nil {
-						log.Println(e)
+						log.Fatal(e)
 					}
 				}
 				if tr {
 					e := sampler.TagCorlTrn(sampler.WccTrn, sampler.TrainFlag)
 					if e != nil {
-						log.Println(e)
+						log.Fatal(e)
 					}
 				}
 			default:

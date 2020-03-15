@@ -294,13 +294,24 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 	}
 }
 
+type sample struct {
+	UUID int
+	Corl float64
+}
+
 func getUUID(table CorlTab) (uuids []int, e error) {
-	type sample struct {
-		UUID int
-		Corl float64
-	}
-	rch := make(chan []*sample, conf.Args.DBQueueCapacity)
+	rch := make(chan []sample, conf.Args.DBQueueCapacity)
 	defer close(rch)
+	var records []sample
+	var wgr sync.WaitGroup
+	wgr.Add(1)
+	go func() {
+		defer wgr.Done()
+		for r := range rch {
+			records = append(records, r...)
+		}
+	}()
+
 	runner := func(partition string) func(c int) (e error) {
 		return func(c int) (e error) {
 			// var count int64
@@ -311,7 +322,7 @@ func getUUID(table CorlTab) (uuids []int, e error) {
 			// 	return repeat.HintTemporary(e)
 			// }
 			// log.Printf("%v partition %s records: %d", table, partition, count)
-			var records []*sample
+			var records []sample
 			q := fmt.Sprintf(`select uuid, corl from %v partition (%s)`, table, partition)
 			if _, e = dbmap.Select(&records, q); e != nil {
 				e = errors.Wrapf(e, "#%d failed to query %v uuid & corl for partition %s", c, table, partition)
@@ -322,15 +333,6 @@ func getUUID(table CorlTab) (uuids []int, e error) {
 			return nil
 		}
 	}
-	var records []*sample
-	var wgr sync.WaitGroup
-	wgr.Add(1)
-	go func() {
-		defer wgr.Done()
-		for r := range rch {
-			records = append(records, r...)
-		}
-	}()
 
 	if e = runByPartitions(nil, string(table), runner); e != nil {
 		e = errors.WithStack(e)
@@ -349,41 +351,22 @@ func getUUID(table CorlTab) (uuids []int, e error) {
 	// })
 
 	// using parallel sort lib
-	lsw := func(i, k, r, s int) bool {
-		if records[i].Corl < records[k].Corl {
-			if r != s {
-				records[r], records[s] = records[s], records[r]
-			}
-			return true
-		}
-		return false
-	}
-	sorty.Sort3(len(records), lsw)
+	sortSamples(records)
 	log.Println("sort complete. extracting UUID...")
 	// extract UUID in parallel and must preserve slice order
 	const SegSize = 4096
 	batch := int(math.Ceil(float64(len(records)) / float64(SegSize)))
-	collect := func(ch <-chan interface{}) {
-		for r := range ch {
-			uuids = append(uuids, r.([]int)...)
-		}
-	}
-
-	extract := func(input interface{}) (output interface{}, e error) {
-		seg := input.([]*sample)
-		var ret []int
-		for _, s := range seg {
-			ret = append(ret, s.UUID)
-		}
-		return ret, nil
-	}
 
 	numWorkers := int(math.Round(float64(runtime.NumCPU()) * conf.Args.Sampler.CPUWorkloadRatio))
 
-	o := ordpool.New(numWorkers, extract)
+	o := ordpool.New(numWorkers, extractUUID)
 	o.Start()
 
-	go collect(o.GetOutputCh())
+	go func(ch <-chan interface{}) {
+		for r := range ch {
+			uuids = append(uuids, r.([]int)...)
+		}
+	}(o.GetOutputCh())
 
 	workChan := o.GetInputCh()
 	for i := 0; i < batch; i++ {
@@ -406,4 +389,26 @@ func getUUID(table CorlTab) (uuids []int, e error) {
 
 	log.Printf("Finished extracting UUID. Records: %d", len(uuids))
 	return
+}
+
+func extractUUID(input interface{}) (output interface{}, e error) {
+	seg := input.([]sample)
+	var ret []int
+	for _, s := range seg {
+		ret = append(ret, s.UUID)
+	}
+	return ret, nil
+}
+
+func sortSamples(records []sample) {
+	lsw := func(i, k, r, s int) bool {
+		if records[i].Corl < records[k].Corl {
+			if r != s {
+				records[r], records[s] = records[s], records[r]
+			}
+			return true
+		}
+		return false
+	}
+	sorty.Sort3(len(records), lsw)
 }

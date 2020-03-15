@@ -22,3 +22,16 @@ func TestSorty(t *testing.T) {
 	sorty.Sort3(len(records), lsw)
 	log.Debugf("%+v", records)
 }
+
+func TestPassArray(t *testing.T) {
+	arr := []int{
+		5, 4, 3, 2, 1,
+	}
+	log.Debugf("%+v", arr)
+	shuffle(arr)
+	log.Debugf("%+v", arr)
+}
+
+func shuffle(arr []int) {
+	arr[0], arr[1], arr[3], arr[4] = arr[4], arr[3], arr[1], arr[0]
+}
