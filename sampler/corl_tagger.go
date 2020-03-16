@@ -101,6 +101,7 @@ func TagCorlTrn(table CorlTab, flag string) (e error) {
 	log.Printf("loading untagged records from %v ...", otab)
 	untagged, e := getUUID(otab)
 	if e != nil {
+		log.Fatal("failed to get UUID: %+v", e)
 		return errors.WithStack(e)
 	}
 	total := len(untagged)
@@ -364,7 +365,8 @@ func getUUID(table CorlTab) (uuids []int, e error) {
 	const SegSize = 4096
 	batch := int(math.Ceil(float64(len(records)) / float64(SegSize)))
 
-	numWorkers := int(math.Round(float64(runtime.NumCPU()) * conf.Args.Sampler.CPUWorkloadRatio))
+	// numWorkers := int(math.Round(float64(runtime.NumCPU()) * conf.Args.Sampler.CPUWorkloadRatio))
+	numWorkers := runtime.NumCPU()
 
 	o := ordpool.New(numWorkers, extractUUID)
 	o.Start()
