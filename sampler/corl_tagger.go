@@ -45,7 +45,7 @@ func TagCorlTrn(table CorlTab, flag string) (e error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if er, hasError := r.(error); hasError {
-				log.Fatalf("caught error:%+v", er)
+				log.Errorf("caught error:%+v", er)
 			}
 		}
 	}()
@@ -309,7 +309,9 @@ type sample struct {
 
 func getUUID(table CorlTab) (uuids []int, e error) {
 	rch := make(chan []sample, conf.Args.DBQueueCapacity)
-	defer close(rch)
+	var closeOnce sync.Once
+	defer closeOnce.Do(func() { close(rch) })
+
 	var records []sample
 	var wgr sync.WaitGroup
 	wgr.Add(1)
@@ -347,7 +349,7 @@ func getUUID(table CorlTab) (uuids []int, e error) {
 		return
 	}
 
-	close(rch)
+	closeOnce.Do(func() { close(rch) })
 	wgr.Wait()
 
 	log.Printf("total samples: %d", len(records))
