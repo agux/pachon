@@ -101,7 +101,7 @@ func TagCorlTrn(table CorlTab, flag string) (e error) {
 	log.Printf("loading untagged records from %v ...", otab)
 	untagged, e := getUUID(otab)
 	if e != nil {
-		log.Fatal("failed to get UUID: %+v", e)
+		log.Errorf("failed to get UUID: %+v", e)
 		return errors.WithStack(e)
 	}
 	total := len(untagged)
@@ -235,7 +235,7 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 			}
 			return
 		}); e != nil {
-			log.Fatalf("batch [%s, %d] failed: %+v", j.flag, j.bno, e)
+			log.Errorf("batch [%s, %d] failed: %+v", j.flag, j.bno, e)
 			chr <- j
 			continue
 		}
@@ -270,7 +270,7 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 				table, strings.Join(fields, ","), holders)
 			if _, e = tx.Exec(q, args...); e != nil {
 				if re := tx.Rollback(); re != nil {
-					log.Fatalf("failed to rollback: %+v", re)
+					log.Errorf("failed to rollback: %+v", re)
 				}
 				e = errors.Wrapf(e, "#%d failed to insert %s [%s,%d], sql:%s", c, table, j.flag, j.bno, q)
 				log.Error(e)
@@ -280,19 +280,19 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 			q = fmt.Sprintf(`delete from %v where uuid in (%s)`, otab, strg)
 			if _, e = tx.Exec(q, uuids...); e != nil {
 				if re := tx.Rollback(); re != nil {
-					log.Fatalf("failed to rollback: %+v", re)
+					log.Errorf("failed to rollback: %+v", re)
 				}
 				e = errors.Wrapf(e, "#%d failed to remove %s data for [%s,%d], sql:%s", c, otab, j.flag, j.bno, q)
 				log.Error(e)
 				return repeat.HintTemporary(e)
 			}
 			if e = tx.Commit(); e != nil {
-				log.Fatalf("#%d failed to commit transaction for [%s,%d]: %+v", c, j.flag, j.bno, e)
+				log.Errorf("#%d failed to commit transaction for [%s,%d]: %+v", c, j.flag, j.bno, e)
 				return repeat.HintTemporary(e)
 			}
 			return
 		}); e != nil {
-			log.Fatalf("batch [%s, %d] failed: %+v", j.flag, j.bno, e)
+			log.Errorf("batch [%s, %d] failed: %+v", j.flag, j.bno, e)
 			chr <- j
 			continue
 		} else {
