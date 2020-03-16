@@ -220,27 +220,17 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 	cacheSize := 0
 	ofields := []string{"code", "date", "klid", "rcode", "corl_stz"}
 	fields := []string{"flag", "bno", "code", "date", "klid", "rcode", "corl_stz", "udate", "utime"}
-	clearCache := func() {
-		cacheSize = 0
-		cachedJob = make([]*tagJob, 0, 64)
-		cachedArgs = make([]interface{}, 0, 2048)
-		cachedUUID = make([]interface{}, 0, 2048)
-	}
-	pushJob := func(jobs []*tagJob) {
-		for _, j := range jobs {
-			chr <- j
-		}
-	}
-	flushCache := func() {
-		if e = writeTag(table, otab, fields, cachedArgs, cachedUUID, cacheSize); e == nil {
+	flushCache := func(insArgs, uuid []interface{}, insRowSize int) {
+		if e = writeTag(table, otab, fields, insArgs, uuid, insRowSize); e == nil {
 			for _, cj := range cachedJob {
 				cj.done = true
 			}
 		} else {
-			log.Errorf("write db failed, record size %d : %+v", cacheSize, e)
+			log.Errorf("write db failed, record size %d : %+v", insRowSize, e)
 		}
-		pushJob(cachedJob)
-		clearCache()
+		for _, j := range cachedJob {
+			chr <- j
+		}
 	}
 	for j := range chjob {
 		var uuids []interface{}
@@ -285,18 +275,28 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 		cachedJob = append(cachedJob, j)
 
 		if cacheSize >= conf.Args.Database.BucketSize {
-			flushCache()
+			flushCache(cachedArgs, cachedUUID, cacheSize)
+			//clear cache
+			cacheSize = 0
+			cachedJob = make([]*tagJob, 0, 64)
+			cachedArgs = make([]interface{}, 0, 2048)
+			cachedUUID = make([]interface{}, 0, 2048)
 		}
 	}
 
 	if cacheSize > 0 {
-		flushCache()
+		flushCache(cachedArgs, cachedUUID, cacheSize)
+		//clear cache
+		cacheSize = 0
+		cachedJob = make([]*tagJob, 0, 64)
+		cachedArgs = make([]interface{}, 0, 2048)
+		cachedUUID = make([]interface{}, 0, 2048)
 	}
 }
 
-func writeTag(table, otab CorlTab, fields []string, args, uuid []interface{}, targetRowSize int) (e error) {
+func writeTag(table, otab CorlTab, fields []string, insArgs, uuid []interface{}, insRowSize int) (e error) {
 	holder := "(?" + strings.Repeat(",?", len(fields)-1) + ")"
-	insPH := holder + strings.Repeat(", "+holder, targetRowSize-1)
+	insPH := holder + strings.Repeat(", "+holder, insRowSize-1)
 	delPH := "?" + strings.Repeat(",?", len(uuid)-1)
 	if e = try(func(c int) (e error) {
 		var tx *gorp.Transaction
@@ -308,7 +308,7 @@ func writeTag(table, otab CorlTab, fields []string, args, uuid []interface{}, ta
 		q := fmt.Sprintf(
 			`insert into %v (%s) values %s`,
 			table, strings.Join(fields, ","), insPH)
-		if _, e = tx.Exec(q, args...); e != nil {
+		if _, e = tx.Exec(q, insArgs...); e != nil {
 			if re := tx.Rollback(); re != nil {
 				log.Errorf("failed to rollback: %+v", re)
 			}
@@ -316,7 +316,7 @@ func writeTag(table, otab CorlTab, fields []string, args, uuid []interface{}, ta
 			log.Error(e)
 			return repeat.HintTemporary(e)
 		}
-		log.Debugf("removing %v, size: %d", otab, targetRowSize)
+		log.Debugf("removing %v, size: %d", otab, insRowSize)
 		q = fmt.Sprintf(`delete from %v where uuid in (%s)`, otab, delPH)
 		if _, e = tx.Exec(q, uuid...); e != nil {
 			if re := tx.Rollback(); re != nil {
