@@ -42,6 +42,13 @@ const (
 //and transfers tagged sets to the final table (such as xcorl_trn or wcc_trn),
 //by randomly and evenly selecting untagged samples based on corl score.
 func TagCorlTrn(table CorlTab, flag string) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if er, hasError := r.(error); hasError {
+				log.Fatalf("caught error:%+v", er)
+			}
+		}
+	}()
 	log.Printf("tagging %v for dataset %s...", table, flag)
 	var otab CorlTab
 	switch table {
@@ -63,7 +70,7 @@ func TagCorlTrn(table CorlTab, flag string) (e error) {
 	default:
 		log.Panicf("unsupported flag: %s", flag)
 	}
-	log.Infof("querying max bno from wcc_trn with flag %s...", vflag)
+	log.Infof("querying max bno from %v with flag %s...", table, vflag)
 	// load existent max tag number
 	q := fmt.Sprintf(
 		"SELECT  "+
@@ -388,6 +395,11 @@ func getUUID(table CorlTab) (uuids []int, e error) {
 	}
 
 	log.Printf("Finished extracting UUID. Records: %d", len(uuids))
+	samLen := 10
+	if len(uuids) <= 0 {
+		samLen = len(uuids)
+	}
+	log.Printf("First %d Samples: %+v", samLen, uuids[:samLen])
 	return
 }
 
