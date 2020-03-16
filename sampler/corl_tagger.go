@@ -29,6 +29,8 @@ type tagJob struct {
 	done  bool
 }
 
+//TODO use bucketing to execute SQL for wcc tagging
+
 const (
 	XcorlSmp CorlTab = "xcorl_smp"
 	//XcorlTrn Cross Correlation Training
@@ -212,21 +214,47 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 	case WccTrn:
 		otab = WccSmp
 	}
+	var cachedJob []*tagJob
+	var cachedUUID []interface{}
+	var cachedArgs []interface{}
+	cacheSize := 0
 	ofields := []string{"code", "date", "klid", "rcode", "corl_stz"}
 	fields := []string{"flag", "bno", "code", "date", "klid", "rcode", "corl_stz", "udate", "utime"}
+	clearCache := func() {
+		cacheSize = 0
+		cachedJob = make([]*tagJob, 0, 64)
+		cachedArgs = make([]interface{}, 0, 2048)
+		cachedUUID = make([]interface{}, 0, 2048)
+	}
+	pushJob := func(jobs []*tagJob) {
+		for _, j := range jobs {
+			chr <- j
+		}
+	}
+	flushCache := func() {
+		if e = writeTag(table, otab, fields, cachedArgs, cachedUUID, cacheSize); e == nil {
+			for _, cj := range cachedJob {
+				cj.done = true
+			}
+		} else {
+			log.Errorf("write db failed, record size %d : %+v", cacheSize, e)
+		}
+		pushJob(cachedJob)
+		clearCache()
+	}
 	for j := range chjob {
 		var uuids []interface{}
-		strg := "?" + strings.Repeat(",?", len(j.uuids)-1)
 		for _, el := range j.uuids {
 			uuids = append(uuids, el)
 		}
 		//insert-select sql statement runs very slow with partitioned wcc_trn table,
 		//possible cause is scanning over all partitions, as of MySQL v8.0.18
 		var rows []*model.WccTrn
+		log.Debugf("tagging [%s,%d] size: %d", j.flag, j.bno, len(j.uuids))
 		if e = try(func(c int) (e error) {
 			q := fmt.Sprintf(
 				`select %s from %v where uuid in (%s)`,
-				strings.Join(ofields, ","), otab, strg)
+				strings.Join(ofields, ","), otab, "?"+strings.Repeat(",?", len(uuids)-1))
 			if _, e = dbmap.Select(&rows, q, uuids...); e != nil {
 				e = errors.Wrapf(e, "#%d batch [%s,%d] failed to query from %v, sql: %s",
 					c, j.flag, j.bno, otab, q)
@@ -240,66 +268,74 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 			continue
 		}
 
-		holder := "(?" + strings.Repeat(",?", len(fields)-1) + ")"
-		holders := holder + strings.Repeat(", "+holder, len(rows)-1)
-		var args []interface{}
 		ud, ut := util.TimeStr()
 		for _, row := range rows {
-			args = append(args, j.flag)
-			args = append(args, j.bno)
-			args = append(args, row.Code)
-			args = append(args, row.Date)
-			args = append(args, row.Klid)
-			args = append(args, row.Rcode)
-			args = append(args, row.CorlStz)
-			args = append(args, ud)
-			args = append(args, ut)
+			cachedArgs = append(cachedArgs, j.flag)
+			cachedArgs = append(cachedArgs, j.bno)
+			cachedArgs = append(cachedArgs, row.Code)
+			cachedArgs = append(cachedArgs, row.Date)
+			cachedArgs = append(cachedArgs, row.Klid)
+			cachedArgs = append(cachedArgs, row.Rcode)
+			cachedArgs = append(cachedArgs, row.CorlStz)
+			cachedArgs = append(cachedArgs, ud)
+			cachedArgs = append(cachedArgs, ut)
 		}
 
-		if e = try(func(c int) (e error) {
-			var tx *gorp.Transaction
-			if tx, e = dbmap.Begin(); e != nil {
-				e = errors.Wrapf(e, "#%d failed to flag [%s,%d], unable to start transaction", c, j.flag, j.bno)
-				log.Error(e)
-				return repeat.HintTemporary(e)
-			}
-			log.Printf("tagging %s,%d size: %d", j.flag, j.bno, len(j.uuids))
+		cacheSize += len(rows)
+		cachedJob = append(cachedJob, j)
 
-			q := fmt.Sprintf(
-				`insert into %v (%s) values %s`,
-				table, strings.Join(fields, ","), holders)
-			if _, e = tx.Exec(q, args...); e != nil {
-				if re := tx.Rollback(); re != nil {
-					log.Errorf("failed to rollback: %+v", re)
-				}
-				e = errors.Wrapf(e, "#%d failed to insert %s [%s,%d], sql:%s", c, table, j.flag, j.bno, q)
-				log.Error(e)
-				return repeat.HintTemporary(e)
-			}
-			log.Debugf("removing sample table for [%s,%d], size: %d", j.flag, j.bno, len(j.uuids))
-			q = fmt.Sprintf(`delete from %v where uuid in (%s)`, otab, strg)
-			if _, e = tx.Exec(q, uuids...); e != nil {
-				if re := tx.Rollback(); re != nil {
-					log.Errorf("failed to rollback: %+v", re)
-				}
-				e = errors.Wrapf(e, "#%d failed to remove %s data for [%s,%d], sql:%s", c, otab, j.flag, j.bno, q)
-				log.Error(e)
-				return repeat.HintTemporary(e)
-			}
-			if e = tx.Commit(); e != nil {
-				log.Errorf("#%d failed to commit transaction for [%s,%d]: %+v", c, j.flag, j.bno, e)
-				return repeat.HintTemporary(e)
-			}
-			return
-		}); e != nil {
-			log.Errorf("batch [%s, %d] failed: %+v", j.flag, j.bno, e)
-			chr <- j
-			continue
-		} else {
-			j.done = true
+		if cacheSize >= conf.Args.Database.BucketSize {
+			flushCache()
 		}
-		chr <- j
 	}
+
+	if cacheSize > 0 {
+		flushCache()
+	}
+}
+
+func writeTag(table, otab CorlTab, fields []string, args, uuid []interface{}, targetRowSize int) (e error) {
+	holder := "(?" + strings.Repeat(",?", len(fields)-1) + ")"
+	insPH := holder + strings.Repeat(", "+holder, targetRowSize-1)
+	delPH := "?" + strings.Repeat(",?", len(uuid)-1)
+	if e = try(func(c int) (e error) {
+		var tx *gorp.Transaction
+		if tx, e = dbmap.Begin(); e != nil {
+			e = errors.Wrapf(e, "#%d unable to start transaction", c)
+			log.Error(e)
+			return repeat.HintTemporary(e)
+		}
+		q := fmt.Sprintf(
+			`insert into %v (%s) values %s`,
+			table, strings.Join(fields, ","), insPH)
+		if _, e = tx.Exec(q, args...); e != nil {
+			if re := tx.Rollback(); re != nil {
+				log.Errorf("failed to rollback: %+v", re)
+			}
+			e = errors.Wrapf(e, "#%d failed to insert %s, sql:%s", c, table, q)
+			log.Error(e)
+			return repeat.HintTemporary(e)
+		}
+		log.Debugf("removing %v, size: %d", otab, targetRowSize)
+		q = fmt.Sprintf(`delete from %v where uuid in (%s)`, otab, delPH)
+		if _, e = tx.Exec(q, uuid...); e != nil {
+			if re := tx.Rollback(); re != nil {
+				log.Errorf("failed to rollback: %+v", re)
+			}
+			e = errors.Wrapf(e, "#%d failed to remove %s data, sql:%s", c, otab, q)
+			log.Error(e)
+			return repeat.HintTemporary(e)
+		}
+		if e = tx.Commit(); e != nil {
+			log.Errorf("#%d failed to commit transaction: %+v", c, e)
+			return repeat.HintTemporary(e)
+		}
+		return
+	}); e != nil {
+		e = errors.Wrapf(e, "write db failed")
+		log.Error(e)
+	}
+	return
 }
 
 type sample struct {

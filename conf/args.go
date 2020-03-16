@@ -62,6 +62,9 @@ type Arguments struct {
 		Schema   string `mapstructure:"schema"`
 		UserName string `mapstructure:"user_name"`
 		Password string `mapstructure:"password"`
+
+		BucketSize int `mapstructure:"bucket_size"`
+		NumWriter  int `mapstructure:"num_writer"`
 	}
 	Network struct {
 		MasterProxyAddr            string  `mapstructure:"master_proxy_addr"`
