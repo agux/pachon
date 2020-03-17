@@ -273,6 +273,7 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 
 		cacheSize += len(rows)
 		cachedJob = append(cachedJob, j)
+		cachedUUID = append(cachedUUID, uuids...)
 
 		if cacheSize >= conf.Args.Database.BucketSize {
 			flushCache(cachedArgs, cachedUUID, cacheSize)
@@ -286,11 +287,6 @@ func procTagJob(table CorlTab, wg *sync.WaitGroup, chjob chan *tagJob, chr chan 
 
 	if cacheSize > 0 {
 		flushCache(cachedArgs, cachedUUID, cacheSize)
-		//clear cache
-		cacheSize = 0
-		cachedJob = make([]*tagJob, 0, 64)
-		cachedArgs = make([]interface{}, 0, 2048)
-		cachedUUID = make([]interface{}, 0, 2048)
 	}
 }
 
