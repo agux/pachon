@@ -31,7 +31,8 @@ schema = "secu"
 user_name = "mysql"
 password = "123456"
 
-bucket_size = 8192
+#beware of "too many placeholders" error
+bucket_size = 4096
 num_writer = 2
 
 [Network]
