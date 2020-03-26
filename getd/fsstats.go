@@ -55,7 +55,7 @@ func CollectFsStats() {
 	// basic log returns
 	feed(ch,
 		[]string{"kline_d_b_lr", "kline_w_b_lr", "kline_m_b_lr", "index_d_n_lr", "index_w_n_lr", "index_m_n_lr"},
-		[]string{"close", "low", "low_close", "high", "high_close", "open", "open_close", "volume"},
+		[]string{"close", "low", "low_close", "high", "high_close", "open", "open_close", "volume", "amount"},
 	)
 	// moving average log returns
 	feed(ch,
