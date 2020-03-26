@@ -76,7 +76,7 @@ func TagCorlTrn(table CorlTab, flag string) (e error) {
 	// load existent max tag number
 	q := fmt.Sprintf(
 		"SELECT  "+
-			"    MAX(distinct bno) AS max_bno "+
+			"    MAX(bno) AS max_bno "+
 			"FROM "+
 			"    %s "+
 			"WHERE "+
@@ -172,8 +172,37 @@ func TagCorlTrn(table CorlTab, flag string) (e error) {
 	close(chr)
 	wgr.Wait()
 
+	updateMaxBNO(table, flag)
+
 	log.Printf("%v %s set tagged: %d", table, flag, ngrps)
 	return nil
+}
+
+func updateMaxBNO(table CorlTab, flag string) {
+	q := fmt.Sprintf(`
+		INSERT INTO fs_stats (method, tab, fields, vmax, udate, utime) 
+		SELECT 
+			'standardization', ?, ?, max(bno), 
+			DATE_FORMAT(now(), '%%Y-%%m-%%d'), DATE_FORMAT(now(), '%%H:%%i:%%S')
+		FROM
+			%v
+		WHERE 
+			flag = ?
+		ON DUPLICATE KEY UPDATE 
+			vmax=values(vmax), 
+			udate=values(udate), 
+			utime=values(utime)
+	`, table)
+	if e := try(func(c int) error {
+		if _, e := dbmap.Exec(q, string(table), flag+"_BNO", flag); e != nil {
+			e = errors.Wrapf(e, "#%d failed to update max bno for %v, %s, sql: %s\nerror:%+v", c, table, flag, q, e)
+			log.Error(e)
+			return repeat.HintTemporary(e)
+		}
+		return nil
+	}); e != nil {
+		log.Panicf("failed to update max bno for %v, %s: %+v", table, flag, e)
+	}
 }
 
 func try(op func(c int) error) error {
