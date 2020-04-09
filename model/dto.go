@@ -69,6 +69,8 @@ const (
 	TC DataSource = "tc"
 	//WHT Kaleidoscope
 	WHT DataSource = "wht"
+	//Sina datasource
+	Sina DataSource = "sina"
 )
 
 const (

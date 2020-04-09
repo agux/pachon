@@ -65,6 +65,36 @@ func PickProxyDirect() (httpProxy string, e error) {
 	return pickFromProxyPool(), nil
 }
 
+//RandomProxy randomly decides whether to use a proxy, master proxy,
+//or rotate proxy based on the given weights for respective chances.
+func RandomProxy(ratio []float64) (px *Proxy, e error) {
+	sum := ratio[0] + ratio[1] + ratio[2]
+	dw := ratio[0] / sum
+	mw := (ratio[0] + ratio[1]) / sum
+	dice := rand.Float64()
+	if dice <= dw {
+		//direct connection
+		return
+	}
+	if dice <= mw {
+		//master proxy
+		ss := strings.Split(conf.Args.Network.MasterProxyAddr, ":")
+		px = &Proxy{
+			Host: ss[0],
+			Port: ss[1],
+			Type: "socks5",
+		}
+	} else {
+		//rotate proxy
+		px, e = PickProxy()
+		if e != nil {
+			e = errors.Wrap(e, "failed to get rotate proxy")
+			return
+		}
+	}
+	return
+}
+
 //PickProxy randomly chooses a proxy from database.
 //The queried proxy will be cached for conf.Args.Network.RotateProxyRefreshInterval
 func PickProxy() (proxy *Proxy, e error) {

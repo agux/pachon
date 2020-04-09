@@ -60,7 +60,8 @@ debug = false
 path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 pool_size = 20
 headless = true
-timeout = 30
+no_image = true
+timeout = 60
 
 [Kdjv]
 sample_size_min = 5
@@ -112,6 +113,11 @@ feature_scaling = "standardization"
     #weights for direct connection / master proxy / rotated proxy
     direct_proxy_weight = [0, 1, 0]
     drop_inconsistent = true
+
+    [DataSource.Sina]
+    #weights for direct connection / master proxy / rotated proxy
+    direct_proxy_weight = [1, 1, 0]
+    timeout = 60
 
     [DataSource.THS]
     concurrency = 50

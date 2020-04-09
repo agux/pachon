@@ -375,6 +375,8 @@ func resolveKlineFetcher(src model.DataSource) (f klineFetcher) {
 		f = &XqKlineFetcher{}
 	case model.EM:
 		f = &EmKlineFetcher{}
+	case model.Sina:
+		f = &SinaKlineFetcher{}
 	default:
 		log.Panicf("unsupported data source: %+v", src)
 	}

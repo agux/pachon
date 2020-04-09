@@ -94,6 +94,7 @@ type Arguments struct {
 		Path     string `mapstructure:"path"`
 		PoolSize int    `mapstructure:"pool_size"`
 		Headless bool   `mapstructure:"headless"`
+		NoImage  bool   `mapstructure:"no_image"`
 		Timeout  int64  `mapstructure:"timeout"`
 	}
 	DataSource struct {
@@ -133,6 +134,11 @@ type Arguments struct {
 			//DirectProxyWeight is an array of weights for direct connection / master proxy / rotated proxy
 			DirectProxyWeight []float64 `mapstructure:"direct_proxy_weight"`
 			DropInconsistent  bool      `mapstructure:"drop_inconsistent"`
+		}
+		Sina struct {
+			//DirectProxyWeight is an array of weights for direct connection / master proxy / rotated proxy
+			DirectProxyWeight []float64 `mapstructure:"direct_proxy_weight"`
+			Timeout           int       `mapstructure:"timeout"`
 		}
 		THS struct {
 			Concurrency    int    `mapstructure:"concurrency"`
@@ -226,6 +232,10 @@ func checkConfig() {
 	if len(Args.DataSource.XQ.DirectProxyWeight) != 3 {
 		log.Panicf(`invalid direct_proxy_weight, must be a float number array of 3 elements: %+v`,
 			Args.DataSource.XQ.DirectProxyWeight)
+	}
+	if len(Args.DataSource.Sina.DirectProxyWeight) != 3 {
+		log.Panicf(`invalid direct_proxy_weight, must be a float number array of 3 elements: %+v`,
+			Args.DataSource.Sina.DirectProxyWeight)
 	}
 }
 
