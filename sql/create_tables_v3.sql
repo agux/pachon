@@ -2271,6 +2271,491 @@ ROW_FORMAT = COMPRESSED PARTITION BY KEY(code, date) PARTITIONS 32 ;
 
 CREATE INDEX `INDEX_W_N_MA_LR_IDX1` ON `secu`.`index_w_n_ma_lr` (`code` ASC, `klid` ASC) VISIBLE;
 
+-- -----------------------------------------------------
+-- Table `secu`.`index_sina_d_n`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `secu`.`index_sina_d_n` ;
+
+CREATE TABLE IF NOT EXISTS `secu`.`index_sina_d_n` (
+  `code` VARCHAR(8) NOT NULL,
+  `ym` INT GENERATED ALWAYS AS (((year(`date`) * 100) + month(`date`))) STORED COMMENT 'year month of the date',
+  `date` VARCHAR(20) NOT NULL,
+  `klid` INT NOT NULL,
+  `open` DOUBLE NULL DEFAULT NULL,
+  `high` DOUBLE NULL DEFAULT NULL,
+  `close` DOUBLE NULL DEFAULT NULL,
+  `low` DOUBLE NULL DEFAULT NULL,
+  `volume` DOUBLE NULL DEFAULT NULL,
+  `amount` DOUBLE NULL DEFAULT NULL,
+  `xrate` DOUBLE NULL DEFAULT NULL,
+  `varate` DOUBLE NULL DEFAULT NULL COMMENT 'Closing price variation(%)',
+  `varate_h` DOUBLE NULL DEFAULT NULL COMMENT 'Highest price variation(%)',
+  `varate_o` DOUBLE NULL DEFAULT NULL COMMENT 'Opening price variation(%)',
+  `varate_l` DOUBLE NULL DEFAULT NULL COMMENT 'Lowest price variation(%)',
+  `udate` VARCHAR(10) NULL DEFAULT NULL COMMENT 'Last update date',
+  `utime` VARCHAR(8) NULL DEFAULT NULL COMMENT 'Last update time',
+  PRIMARY KEY (`code`, `date`, `ym`))
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_0900_ai_ci
+COMMENT = 'Daily Index (Non-Reinstated)'
+ROW_FORMAT = COMPRESSED PARTITION BY LINEAR HASH(ym) PARTITIONS 256 ;
+
+CREATE INDEX `INDEX_D_N_IDX1` ON `secu`.`index_sina_d_n` (`code` ASC, `klid` ASC) VISIBLE;
+
+
+-- -----------------------------------------------------
+-- Table `secu`.`index_sina_d_n_lr`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `secu`.`index_sina_d_n_lr` ;
+
+CREATE TABLE IF NOT EXISTS `secu`.`index_sina_d_n_lr` (
+  `code` VARCHAR(8) NOT NULL,
+  `ym` INT GENERATED ALWAYS AS (((year(`date`) * 100) + month(`date`))) STORED COMMENT 'year month of the date',
+  `date` VARCHAR(20) NOT NULL,
+  `klid` INT NOT NULL,
+  `amount` DOUBLE NULL DEFAULT NULL,
+  `xrate` DOUBLE NULL DEFAULT NULL,
+  `close` DOUBLE NULL DEFAULT NULL COMMENT 'Log Return (Close)',
+  `high` DOUBLE NULL DEFAULT NULL COMMENT 'Log Return (High)',
+  `high_close` DOUBLE NULL DEFAULT NULL,
+  `open` DOUBLE NULL DEFAULT NULL COMMENT 'Log Return (Open)',
+  `open_close` DOUBLE NULL DEFAULT NULL,
+  `low` DOUBLE NULL DEFAULT NULL COMMENT 'Log Return (Low)',
+  `low_close` DOUBLE NULL DEFAULT NULL,
+  `volume` DOUBLE NULL DEFAULT NULL COMMENT 'Log Return for Volume',
+  `udate` VARCHAR(10) NULL DEFAULT NULL COMMENT 'Last update date',
+  `utime` VARCHAR(8) NULL DEFAULT NULL COMMENT 'Last update time',
+  PRIMARY KEY (`code`, `date`, `ym`))
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_0900_ai_ci
+COMMENT = 'Daily Index Log Return (Non-Reinstated)'
+ROW_FORMAT = COMPRESSED PARTITION BY LINEAR HASH(ym) PARTITIONS 256 ;
+
+CREATE INDEX `INDEX_D_N_LR_IDX1` ON `secu`.`index_sina_d_n_lr` (`code` ASC, `klid` ASC) VISIBLE;
+
+
+-- -----------------------------------------------------
+-- Table `secu`.`index_sina_d_n_ma`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `secu`.`index_sina_d_n_ma` ;
+
+CREATE TABLE IF NOT EXISTS `secu`.`index_sina_d_n_ma` (
+  `code` VARCHAR(8) NOT NULL,
+  `ym` INT GENERATED ALWAYS AS (((year(`date`) * 100) + month(`date`))) STORED COMMENT 'year month of the date',
+  `date` VARCHAR(20) NOT NULL,
+  `klid` INT NOT NULL,
+  `ma5` DOUBLE NULL DEFAULT NULL,
+  `ma10` DOUBLE NULL DEFAULT NULL,
+  `ma20` DOUBLE NULL DEFAULT NULL,
+  `ma30` DOUBLE NULL DEFAULT NULL,
+  `ma60` DOUBLE NULL DEFAULT NULL,
+  `ma120` DOUBLE NULL DEFAULT NULL,
+  `ma200` DOUBLE NULL DEFAULT NULL,
+  `ma250` DOUBLE NULL DEFAULT NULL,
+  `vol5` DOUBLE NULL DEFAULT NULL,
+  `vol10` DOUBLE NULL DEFAULT NULL,
+  `vol20` DOUBLE NULL DEFAULT NULL,
+  `vol30` DOUBLE NULL DEFAULT NULL,
+  `vol60` DOUBLE NULL DEFAULT NULL,
+  `vol120` DOUBLE NULL DEFAULT NULL,
+  `vol200` DOUBLE NULL DEFAULT NULL,
+  `vol250` DOUBLE NULL DEFAULT NULL,
+  `udate` VARCHAR(10) NULL DEFAULT NULL COMMENT 'Last update date',
+  `utime` VARCHAR(8) NULL DEFAULT NULL COMMENT 'Last update time',
+  PRIMARY KEY (`code`, `date`, `ym`))
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_0900_ai_ci
+COMMENT = 'Daily Index Moving Average (Non-Reinstated)'
+ROW_FORMAT = COMPRESSED PARTITION BY LINEAR HASH(ym) PARTITIONS 256 ;
+
+CREATE INDEX `INDEX_D_N_MA_IDX1` ON `secu`.`index_sina_d_n_ma` (`code` ASC, `klid` ASC) VISIBLE;
+
+
+-- -----------------------------------------------------
+-- Table `secu`.`index_sina_d_n_ma_lr`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `secu`.`index_sina_d_n_ma_lr` ;
+
+CREATE TABLE IF NOT EXISTS `secu`.`index_sina_d_n_ma_lr` (
+  `code` VARCHAR(8) NOT NULL,
+  `ym` INT GENERATED ALWAYS AS (((year(`date`) * 100) + month(`date`))) STORED COMMENT 'year month of the date',
+  `date` VARCHAR(20) NOT NULL,
+  `klid` INT NOT NULL,
+  `ma5` DOUBLE NULL DEFAULT NULL,
+  `ma5_o` DOUBLE NULL DEFAULT NULL,
+  `ma5_h` DOUBLE NULL DEFAULT NULL,
+  `ma5_l` DOUBLE NULL DEFAULT NULL,
+  `ma10` DOUBLE NULL DEFAULT NULL,
+  `ma10_o` DOUBLE NULL DEFAULT NULL,
+  `ma10_h` DOUBLE NULL DEFAULT NULL,
+  `ma10_l` DOUBLE NULL DEFAULT NULL,
+  `ma20` DOUBLE NULL DEFAULT NULL,
+  `ma20_o` DOUBLE NULL DEFAULT NULL,
+  `ma20_h` DOUBLE NULL DEFAULT NULL,
+  `ma20_l` DOUBLE NULL DEFAULT NULL,
+  `ma30` DOUBLE NULL DEFAULT NULL,
+  `ma30_o` DOUBLE NULL DEFAULT NULL,
+  `ma30_h` DOUBLE NULL DEFAULT NULL,
+  `ma30_l` DOUBLE NULL DEFAULT NULL,
+  `ma60` DOUBLE NULL DEFAULT NULL,
+  `ma60_o` DOUBLE NULL DEFAULT NULL,
+  `ma60_h` DOUBLE NULL DEFAULT NULL,
+  `ma60_l` DOUBLE NULL DEFAULT NULL,
+  `ma120` DOUBLE NULL DEFAULT NULL,
+  `ma120_o` DOUBLE NULL DEFAULT NULL,
+  `ma120_h` DOUBLE NULL DEFAULT NULL,
+  `ma120_l` DOUBLE NULL DEFAULT NULL,
+  `ma200` DOUBLE NULL DEFAULT NULL,
+  `ma200_o` DOUBLE NULL DEFAULT NULL,
+  `ma200_h` DOUBLE NULL DEFAULT NULL,
+  `ma200_l` DOUBLE NULL DEFAULT NULL,
+  `ma250` DOUBLE NULL DEFAULT NULL,
+  `ma250_o` DOUBLE NULL DEFAULT NULL,
+  `ma250_h` DOUBLE NULL DEFAULT NULL,
+  `ma250_l` DOUBLE NULL DEFAULT NULL,
+  `vol5` DOUBLE NULL DEFAULT NULL,
+  `vol10` DOUBLE NULL DEFAULT NULL,
+  `vol20` DOUBLE NULL DEFAULT NULL,
+  `vol30` DOUBLE NULL DEFAULT NULL,
+  `vol60` DOUBLE NULL DEFAULT NULL,
+  `vol120` DOUBLE NULL DEFAULT NULL,
+  `vol200` DOUBLE NULL DEFAULT NULL,
+  `vol250` DOUBLE NULL DEFAULT NULL,
+  `udate` VARCHAR(10) NULL DEFAULT NULL COMMENT 'Last update date',
+  `utime` VARCHAR(8) NULL DEFAULT NULL COMMENT 'Last update time',
+  PRIMARY KEY (`code`, `date`, `ym`))
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_0900_ai_ci
+COMMENT = 'Daily Index Moving Average Log Return (Non-Reinstated)'
+ROW_FORMAT = COMPRESSED PARTITION BY LINEAR HASH(ym) PARTITIONS 256 ;
+
+CREATE INDEX `INDEX_D_N_MA_LR_IDX1` ON `secu`.`index_sina_d_n_ma_lr` (`code` ASC, `klid` ASC) VISIBLE;
+
+
+-- -----------------------------------------------------
+-- Table `secu`.`index_sina_m_n`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `secu`.`index_sina_m_n` ;
+
+CREATE TABLE IF NOT EXISTS `secu`.`index_sina_m_n` (
+  `code` VARCHAR(8) NOT NULL,
+  `date` VARCHAR(20) NOT NULL,
+  `klid` INT NOT NULL,
+  `open` DOUBLE NULL DEFAULT NULL,
+  `high` DOUBLE NULL DEFAULT NULL,
+  `close` DOUBLE NULL DEFAULT NULL,
+  `low` DOUBLE NULL DEFAULT NULL,
+  `volume` DOUBLE NULL DEFAULT NULL,
+  `amount` DOUBLE NULL DEFAULT NULL,
+  `xrate` DOUBLE NULL DEFAULT NULL,
+  `varate` DOUBLE NULL DEFAULT NULL COMMENT 'Closing price variation (%)',
+  `varate_h` DOUBLE NULL DEFAULT NULL COMMENT 'Highest price variation (%)',
+  `varate_o` DOUBLE NULL DEFAULT NULL COMMENT 'Opening price variation(%)',
+  `varate_l` DOUBLE NULL DEFAULT NULL COMMENT 'Lowest price variation(%)',
+  `udate` VARCHAR(10) NULL DEFAULT NULL COMMENT 'Last update date',
+  `utime` VARCHAR(8) NULL DEFAULT NULL COMMENT 'Last update time',
+  PRIMARY KEY (`code`, `date`))
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_0900_ai_ci
+COMMENT = 'Monthly Index (Non-Reinstated)'
+ROW_FORMAT = COMPRESSED PARTITION BY KEY(code, date) PARTITIONS 16 ;
+
+CREATE INDEX `INDEX_M_N_IDX1` ON `secu`.`index_sina_m_n` (`code` ASC, `klid` ASC) VISIBLE;
+
+
+-- -----------------------------------------------------
+-- Table `secu`.`index_sina_m_n_lr`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `secu`.`index_sina_m_n_lr` ;
+
+CREATE TABLE IF NOT EXISTS `secu`.`index_sina_m_n_lr` (
+  `code` VARCHAR(8) NOT NULL,
+  `date` VARCHAR(20) NOT NULL,
+  `klid` INT NOT NULL,
+  `amount` DOUBLE NULL DEFAULT NULL,
+  `xrate` DOUBLE NULL DEFAULT NULL,
+  `close` DOUBLE NULL DEFAULT NULL COMMENT 'Log Return (Close)',
+  `high` DOUBLE NULL DEFAULT NULL COMMENT 'Log Return (High)',
+  `high_close` DOUBLE NULL DEFAULT NULL,
+  `open` DOUBLE NULL DEFAULT NULL COMMENT 'Log Return (Open)',
+  `open_close` DOUBLE NULL DEFAULT NULL,
+  `low` DOUBLE NULL DEFAULT NULL COMMENT 'Log Return (Low)',
+  `low_close` DOUBLE NULL DEFAULT NULL,
+  `volume` DOUBLE NULL DEFAULT NULL COMMENT 'Log Return for Volume',
+  `udate` VARCHAR(10) NULL DEFAULT NULL COMMENT 'Last update date',
+  `utime` VARCHAR(8) NULL DEFAULT NULL COMMENT 'Last update time',
+  PRIMARY KEY (`code`, `date`))
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_0900_ai_ci
+COMMENT = 'Monthly Index Log Return (Non-Reinstated)'
+ROW_FORMAT = COMPRESSED PARTITION BY KEY(code, date) PARTITIONS 16 ;
+
+CREATE INDEX `INDEX_M_N_LR_IDX1` ON `secu`.`index_sina_m_n_lr` (`code` ASC, `klid` ASC) VISIBLE;
+
+
+-- -----------------------------------------------------
+-- Table `secu`.`index_sina_m_n_ma`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `secu`.`index_sina_m_n_ma` ;
+
+CREATE TABLE IF NOT EXISTS `secu`.`index_sina_m_n_ma` (
+  `code` VARCHAR(8) NOT NULL,
+  `date` VARCHAR(20) NOT NULL,
+  `klid` INT NOT NULL,
+  `ma5` DOUBLE NULL DEFAULT NULL,
+  `ma10` DOUBLE NULL DEFAULT NULL,
+  `ma20` DOUBLE NULL DEFAULT NULL,
+  `ma30` DOUBLE NULL DEFAULT NULL,
+  `ma60` DOUBLE NULL DEFAULT NULL,
+  `ma120` DOUBLE NULL DEFAULT NULL,
+  `ma200` DOUBLE NULL DEFAULT NULL,
+  `ma250` DOUBLE NULL DEFAULT NULL,
+  `vol5` DOUBLE NULL DEFAULT NULL,
+  `vol10` DOUBLE NULL DEFAULT NULL,
+  `vol20` DOUBLE NULL DEFAULT NULL,
+  `vol30` DOUBLE NULL DEFAULT NULL,
+  `vol60` DOUBLE NULL DEFAULT NULL,
+  `vol120` DOUBLE NULL DEFAULT NULL,
+  `vol200` DOUBLE NULL DEFAULT NULL,
+  `vol250` DOUBLE NULL DEFAULT NULL,
+  `udate` VARCHAR(10) NULL DEFAULT NULL COMMENT 'Last update date',
+  `utime` VARCHAR(8) NULL DEFAULT NULL COMMENT 'Last update time',
+  PRIMARY KEY (`code`, `date`))
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_0900_ai_ci
+COMMENT = 'Monthly Index Moving Average (Non-Reinstated)'
+ROW_FORMAT = COMPRESSED PARTITION BY KEY(code, date) PARTITIONS 16 ;
+
+CREATE INDEX `INDEX_M_N_MA_IDX1` ON `secu`.`index_sina_m_n_ma` (`code` ASC, `klid` ASC) VISIBLE;
+
+
+-- -----------------------------------------------------
+-- Table `secu`.`index_sina_m_n_ma_lr`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `secu`.`index_sina_m_n_ma_lr` ;
+
+CREATE TABLE IF NOT EXISTS `secu`.`index_sina_m_n_ma_lr` (
+  `code` VARCHAR(8) NOT NULL,
+  `date` VARCHAR(20) NOT NULL,
+  `klid` INT NOT NULL,
+  `ma5` DOUBLE NULL DEFAULT NULL,
+  `ma5_o` DOUBLE NULL DEFAULT NULL,
+  `ma5_h` DOUBLE NULL DEFAULT NULL,
+  `ma5_l` DOUBLE NULL DEFAULT NULL,
+  `ma10` DOUBLE NULL DEFAULT NULL,
+  `ma10_o` DOUBLE NULL DEFAULT NULL,
+  `ma10_h` DOUBLE NULL DEFAULT NULL,
+  `ma10_l` DOUBLE NULL DEFAULT NULL,
+  `ma20` DOUBLE NULL DEFAULT NULL,
+  `ma20_o` DOUBLE NULL DEFAULT NULL,
+  `ma20_h` DOUBLE NULL DEFAULT NULL,
+  `ma20_l` DOUBLE NULL DEFAULT NULL,
+  `ma30` DOUBLE NULL DEFAULT NULL,
+  `ma30_o` DOUBLE NULL DEFAULT NULL,
+  `ma30_h` DOUBLE NULL DEFAULT NULL,
+  `ma30_l` DOUBLE NULL DEFAULT NULL,
+  `ma60` DOUBLE NULL DEFAULT NULL,
+  `ma60_o` DOUBLE NULL DEFAULT NULL,
+  `ma60_h` DOUBLE NULL DEFAULT NULL,
+  `ma60_l` DOUBLE NULL DEFAULT NULL,
+  `ma120` DOUBLE NULL DEFAULT NULL,
+  `ma120_o` DOUBLE NULL DEFAULT NULL,
+  `ma120_h` DOUBLE NULL DEFAULT NULL,
+  `ma120_l` DOUBLE NULL DEFAULT NULL,
+  `ma200` DOUBLE NULL DEFAULT NULL,
+  `ma200_o` DOUBLE NULL DEFAULT NULL,
+  `ma200_h` DOUBLE NULL DEFAULT NULL,
+  `ma200_l` DOUBLE NULL DEFAULT NULL,
+  `ma250` DOUBLE NULL DEFAULT NULL,
+  `ma250_o` DOUBLE NULL DEFAULT NULL,
+  `ma250_h` DOUBLE NULL DEFAULT NULL,
+  `ma250_l` DOUBLE NULL DEFAULT NULL,
+  `vol5` DOUBLE NULL DEFAULT NULL,
+  `vol10` DOUBLE NULL DEFAULT NULL,
+  `vol20` DOUBLE NULL DEFAULT NULL,
+  `vol30` DOUBLE NULL DEFAULT NULL,
+  `vol60` DOUBLE NULL DEFAULT NULL,
+  `vol120` DOUBLE NULL DEFAULT NULL,
+  `vol200` DOUBLE NULL DEFAULT NULL,
+  `vol250` DOUBLE NULL DEFAULT NULL,
+  `udate` VARCHAR(10) NULL DEFAULT NULL COMMENT 'Last update date',
+  `utime` VARCHAR(8) NULL DEFAULT NULL COMMENT 'Last update time',
+  PRIMARY KEY (`code`, `date`))
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_0900_ai_ci
+COMMENT = 'Monthly Index Moving Average Log Return (Non-Reinstated)'
+ROW_FORMAT = COMPRESSED PARTITION BY KEY(code, date) PARTITIONS 16 ;
+
+CREATE INDEX `INDEX_M_N_MA_LR_IDX1` ON `secu`.`index_sina_m_n_ma_lr` (`code` ASC, `klid` ASC) VISIBLE;
+
+
+-- -----------------------------------------------------
+-- Table `secu`.`index_sina_w_n`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `secu`.`index_sina_w_n` ;
+
+CREATE TABLE IF NOT EXISTS `secu`.`index_sina_w_n` (
+  `code` VARCHAR(8) NOT NULL,
+  `date` VARCHAR(20) NOT NULL,
+  `klid` INT NOT NULL,
+  `open` DOUBLE NULL DEFAULT NULL,
+  `high` DOUBLE NULL DEFAULT NULL,
+  `close` DOUBLE NULL DEFAULT NULL,
+  `low` DOUBLE NULL DEFAULT NULL,
+  `volume` DOUBLE NULL DEFAULT NULL,
+  `amount` DOUBLE NULL DEFAULT NULL,
+  `xrate` DOUBLE NULL DEFAULT NULL,
+  `varate` DOUBLE NULL DEFAULT NULL COMMENT 'Closing price variation (%)',
+  `varate_h` DOUBLE NULL DEFAULT NULL COMMENT 'Highest price variation (%)',
+  `varate_o` DOUBLE NULL DEFAULT NULL COMMENT 'Opening price variation(%)',
+  `varate_l` DOUBLE NULL DEFAULT NULL COMMENT 'Lowest price variation(%)',
+  `udate` VARCHAR(10) NULL DEFAULT NULL COMMENT 'Last update date',
+  `utime` VARCHAR(8) NULL DEFAULT NULL COMMENT 'Last update time',
+  PRIMARY KEY (`code`, `date`))
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_0900_ai_ci
+COMMENT = 'Weekly Index (Non-Reinstated)'
+ROW_FORMAT = COMPRESSED PARTITION BY KEY(code, date) PARTITIONS 32 ;
+
+CREATE INDEX `INDEX_W_N_IDX1` ON `secu`.`index_sina_w_n` (`code` ASC, `klid` ASC) VISIBLE;
+
+
+-- -----------------------------------------------------
+-- Table `secu`.`index_sina_w_n_lr`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `secu`.`index_sina_w_n_lr` ;
+
+CREATE TABLE IF NOT EXISTS `secu`.`index_sina_w_n_lr` (
+  `code` VARCHAR(8) NOT NULL,
+  `date` VARCHAR(20) NOT NULL,
+  `klid` INT NOT NULL,
+  `amount` DOUBLE NULL DEFAULT NULL,
+  `xrate` DOUBLE NULL DEFAULT NULL,
+  `close` DOUBLE NULL DEFAULT NULL COMMENT 'Log Return (Close)',
+  `high` DOUBLE NULL DEFAULT NULL COMMENT 'Log Return (High)',
+  `high_close` DOUBLE NULL DEFAULT NULL,
+  `open` DOUBLE NULL DEFAULT NULL COMMENT 'Log Return (Open)',
+  `open_close` DOUBLE NULL DEFAULT NULL,
+  `low` DOUBLE NULL DEFAULT NULL COMMENT 'Log Return (Low)',
+  `low_close` DOUBLE NULL DEFAULT NULL,
+  `volume` DOUBLE NULL DEFAULT NULL COMMENT 'Log Return for Volume',
+  `udate` VARCHAR(10) NULL DEFAULT NULL COMMENT 'Last update date',
+  `utime` VARCHAR(8) NULL DEFAULT NULL COMMENT 'Last update time',
+  PRIMARY KEY (`code`, `date`))
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_0900_ai_ci
+COMMENT = 'Weekly Index Log Return (Non-Reinstated)'
+ROW_FORMAT = COMPRESSED PARTITION BY KEY(code, date) PARTITIONS 32 ;
+
+CREATE INDEX `INDEX_W_N_LR_IDX1` ON `secu`.`index_sina_w_n_lr` (`code` ASC, `klid` ASC) VISIBLE;
+
+
+-- -----------------------------------------------------
+-- Table `secu`.`index_sina_w_n_ma`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `secu`.`index_sina_w_n_ma` ;
+
+CREATE TABLE IF NOT EXISTS `secu`.`index_sina_w_n_ma` (
+  `code` VARCHAR(8) NOT NULL,
+  `date` VARCHAR(20) NOT NULL,
+  `klid` INT NOT NULL,
+  `ma5` DOUBLE NULL DEFAULT NULL,
+  `ma10` DOUBLE NULL DEFAULT NULL,
+  `ma20` DOUBLE NULL DEFAULT NULL,
+  `ma30` DOUBLE NULL DEFAULT NULL,
+  `ma60` DOUBLE NULL DEFAULT NULL,
+  `ma120` DOUBLE NULL DEFAULT NULL,
+  `ma200` DOUBLE NULL DEFAULT NULL,
+  `ma250` DOUBLE NULL DEFAULT NULL,
+  `vol5` DOUBLE NULL DEFAULT NULL,
+  `vol10` DOUBLE NULL DEFAULT NULL,
+  `vol20` DOUBLE NULL DEFAULT NULL,
+  `vol30` DOUBLE NULL DEFAULT NULL,
+  `vol60` DOUBLE NULL DEFAULT NULL,
+  `vol120` DOUBLE NULL DEFAULT NULL,
+  `vol200` DOUBLE NULL DEFAULT NULL,
+  `vol250` DOUBLE NULL DEFAULT NULL,
+  `udate` VARCHAR(10) NULL DEFAULT NULL COMMENT 'Last update date',
+  `utime` VARCHAR(8) NULL DEFAULT NULL COMMENT 'Last update time',
+  PRIMARY KEY (`code`, `date`))
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_0900_ai_ci
+COMMENT = 'Weekly Index Moving Average (Non-Reinstated)'
+ROW_FORMAT = COMPRESSED PARTITION BY KEY(code, date) PARTITIONS 32 ;
+
+CREATE INDEX `INDEX_W_N_MA_IDX1` ON `secu`.`index_sina_w_n_ma` (`code` ASC, `klid` ASC) VISIBLE;
+
+
+-- -----------------------------------------------------
+-- Table `secu`.`index_sina_w_n_ma_lr`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `secu`.`index_sina_w_n_ma_lr` ;
+
+CREATE TABLE IF NOT EXISTS `secu`.`index_sina_w_n_ma_lr` (
+  `code` VARCHAR(8) NOT NULL,
+  `date` VARCHAR(20) NOT NULL,
+  `klid` INT NOT NULL,
+  `ma5` DOUBLE NULL DEFAULT NULL,
+  `ma5_o` DOUBLE NULL DEFAULT NULL,
+  `ma5_h` DOUBLE NULL DEFAULT NULL,
+  `ma5_l` DOUBLE NULL DEFAULT NULL,
+  `ma10` DOUBLE NULL DEFAULT NULL,
+  `ma10_o` DOUBLE NULL DEFAULT NULL,
+  `ma10_h` DOUBLE NULL DEFAULT NULL,
+  `ma10_l` DOUBLE NULL DEFAULT NULL,
+  `ma20` DOUBLE NULL DEFAULT NULL,
+  `ma20_o` DOUBLE NULL DEFAULT NULL,
+  `ma20_h` DOUBLE NULL DEFAULT NULL,
+  `ma20_l` DOUBLE NULL DEFAULT NULL,
+  `ma30` DOUBLE NULL DEFAULT NULL,
+  `ma30_o` DOUBLE NULL DEFAULT NULL,
+  `ma30_h` DOUBLE NULL DEFAULT NULL,
+  `ma30_l` DOUBLE NULL DEFAULT NULL,
+  `ma60` DOUBLE NULL DEFAULT NULL,
+  `ma60_o` DOUBLE NULL DEFAULT NULL,
+  `ma60_h` DOUBLE NULL DEFAULT NULL,
+  `ma60_l` DOUBLE NULL DEFAULT NULL,
+  `ma120` DOUBLE NULL DEFAULT NULL,
+  `ma120_o` DOUBLE NULL DEFAULT NULL,
+  `ma120_h` DOUBLE NULL DEFAULT NULL,
+  `ma120_l` DOUBLE NULL DEFAULT NULL,
+  `ma200` DOUBLE NULL DEFAULT NULL,
+  `ma200_o` DOUBLE NULL DEFAULT NULL,
+  `ma200_h` DOUBLE NULL DEFAULT NULL,
+  `ma200_l` DOUBLE NULL DEFAULT NULL,
+  `ma250` DOUBLE NULL DEFAULT NULL,
+  `ma250_o` DOUBLE NULL DEFAULT NULL,
+  `ma250_h` DOUBLE NULL DEFAULT NULL,
+  `ma250_l` DOUBLE NULL DEFAULT NULL,
+  `vol5` DOUBLE NULL DEFAULT NULL,
+  `vol10` DOUBLE NULL DEFAULT NULL,
+  `vol20` DOUBLE NULL DEFAULT NULL,
+  `vol30` DOUBLE NULL DEFAULT NULL,
+  `vol60` DOUBLE NULL DEFAULT NULL,
+  `vol120` DOUBLE NULL DEFAULT NULL,
+  `vol200` DOUBLE NULL DEFAULT NULL,
+  `vol250` DOUBLE NULL DEFAULT NULL,
+  `udate` VARCHAR(10) NULL DEFAULT NULL COMMENT 'Last update date',
+  `utime` VARCHAR(8) NULL DEFAULT NULL COMMENT 'Last update time',
+  PRIMARY KEY (`code`, `date`))
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_0900_ai_ci
+COMMENT = 'Weekly Index Moving Average Log Return (Non-Reinstated)'
+ROW_FORMAT = COMPRESSED PARTITION BY KEY(code, date) PARTITIONS 32 ;
+
+CREATE INDEX `INDEX_W_N_MA_LR_IDX1` ON `secu`.`index_sina_w_n_ma_lr` (`code` ASC, `klid` ASC) VISIBLE;
 
 -- -----------------------------------------------------
 -- Table `secu`.`indicator_d`

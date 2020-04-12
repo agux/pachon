@@ -2,6 +2,7 @@ package getd
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/agux/pachon/conf"
 	"github.com/agux/pachon/model"
@@ -9,8 +10,14 @@ import (
 )
 
 //GetIndicesV2 fetches index data from configured source.
-func GetIndicesV2() (idxlst, suclst []*model.IdxLst) {
+func GetIndicesV2(isValidate bool) (idxlst, suclst []*model.IdxLst) {
 	src := conf.Args.DataSource.Index
+	localSource := model.Index
+	if isValidate {
+		src = conf.Args.DataSource.Validate.IndexSource
+		localSource = model.DataSource(fmt.Sprintf("%v_%v", model.Index, src))
+	}
+	remoteSource := model.DataSource(src)
 	log.Infof("Querying index list for source: %s", src)
 	_, e := dbmap.Select(&idxlst, `select * from idxlst where src = ?`, src)
 	util.CheckErr(e, "failed to query idxlst")
@@ -43,16 +50,16 @@ func GetIndicesV2() (idxlst, suclst []*model.IdxLst) {
 			}
 			cycles[c] = true
 			frs = append(frs, FetchRequest{
-				RemoteSource: model.DataSource(src),
-				LocalSource:  model.Index,
+				RemoteSource: remoteSource,
+				LocalSource:  localSource,
 				Reinstate:    model.None,
 				Cycle:        model.CYTP(c),
 			})
 		}
 	} else {
 		fr := FetchRequest{
-			RemoteSource: model.DataSource(src),
-			LocalSource:  model.Index,
+			RemoteSource: remoteSource,
+			LocalSource:  localSource,
 			Reinstate:    model.None,
 		}
 		cs := []model.CYTP{model.DAY, model.WEEK, model.MONTH}

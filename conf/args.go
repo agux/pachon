@@ -112,6 +112,7 @@ type Arguments struct {
 		SkipXdxr              bool                `mapstructure:"skip_xdxr"`
 		SkipKlines            bool                `mapstructure:"skip_klines"`
 		SkipFsStats           bool                `mapstructure:"skip_fs_stats"`
+		SkipIndicesVld        bool                `mapstructure:"skip_indices_vld"`
 		SkipIndices           bool                `mapstructure:"skip_indices"`
 		SkipBasicsUpdate      bool                `mapstructure:"skip_basics_update"`
 		SkipIndexCalculation  bool                `mapstructure:"skip_index_calculation"`
@@ -122,6 +123,7 @@ type Arguments struct {
 		FeatureScaling        string              `mapstructure:"feature_scaling"`
 		Validate              struct {
 			Source           string `mapstructure:"source"`
+			IndexSource      string `mapstructure:"index_source"`
 			DropInconsistent bool   `mapstructure:"drop_inconsistent"`
 			SkipKlinePre     bool   `mapstructure:"skip_kline_pre"`
 			SkipKlines       bool   `mapstructure:"skip_klines"`

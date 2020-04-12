@@ -59,6 +59,8 @@ const (
 	KlineMaster DataSource = "kline"
 	//Index the index table
 	Index DataSource = "index"
+	//IndexSina the sina index table
+	IndexSina DataSource = "index_sina"
 	//XQ xueqiu
 	XQ DataSource = "xq"
 	//EM eastmoney

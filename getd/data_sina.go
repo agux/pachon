@@ -2,9 +2,18 @@ package getd
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"regexp"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.com/ssgreg/repeat"
 
 	"github.com/agux/pachon/conf"
 	"github.com/agux/pachon/model"
@@ -14,16 +23,46 @@ import (
 )
 
 //SinaKlineFetcher fetches kline from sina
-type SinaKlineFetcher struct{}
+type SinaKlineFetcher struct {
+	completedRequest map[string][]FetchRequest
+	crLock           sync.RWMutex
+}
 
-//fetchKline from specific data source for the given stock.
-func (s *SinaKlineFetcher) fetchKline(stk *model.Stock, fr FetchRequest, incr bool) (
-	tdmap map[FetchRequest]*model.TradeData, suc, retry bool) {
+func (s *SinaKlineFetcher) hasCompleted(code string, fr FetchRequest) bool {
+	s.crLock.Lock()
+	defer s.crLock.Unlock()
+	if creqs := s.completedRequest[code]; len(creqs) > 0 {
+		for _, creq := range creqs {
+			if creq == fr {
+				return true
+			}
+		}
+	}
+	return false
+}
 
-	px, e := util.RandomProxy(conf.Args.DataSource.Sina.DirectProxyWeight)
-	if e != nil {
-		log.Errorf("failed to get random proxy: %+v", e)
-		return tdmap, false, true
+func (s *SinaKlineFetcher) markComplete(code string, fr ...FetchRequest) {
+	s.crLock.Lock()
+	defer s.crLock.Unlock()
+	s.completedRequest[code] = fr
+}
+
+//fetches day, week, and month kline data all in one go
+func (s *SinaKlineFetcher) getExtraRequests(frIn []FetchRequest) (frOut []FetchRequest) {
+	//TODO derives corresponding cycles for each reinstate type
+	panic("not implemented yet")
+}
+
+func (s *SinaKlineFetcher) cleanup() {
+	s.completedRequest = make(map[string][]FetchRequest)
+}
+
+func (s *SinaKlineFetcher) chrome(stk *model.Stock, fr FetchRequest) (data interface{}, e error) {
+	var px *util.Proxy
+	if px, e = util.RandomProxy(conf.Args.DataSource.Sina.DirectProxyWeight); e != nil {
+		e = errors.Wrapf(e, "failed to get random proxy")
+		e = repeat.HintTemporary(e)
+		return
 	}
 
 	// create parent context
@@ -31,6 +70,8 @@ func (s *SinaKlineFetcher) fetchKline(stk *model.Stock, fr FetchRequest, incr bo
 	defer c()
 	o := chrome.AllocatorOptions(px)
 	ctx, c = chromedp.NewExecAllocator(ctx, o...)
+	defer c()
+	ctx, c = chromedp.NewContext(ctx)
 	defer c()
 
 	url := fmt.Sprintf(`https://quotes.sina.cn/hs/company/quotes/view/%s%s`,
@@ -50,39 +91,271 @@ func (s *SinaKlineFetcher) fetchKline(stk *model.Stock, fr FetchRequest, incr bo
 
 	if e = chromedp.Run(ctx,
 		chromedp.Navigate(url),
-		chromedp.WaitVisible(chartID)); e != nil {
+		chromedp.WaitReady(chartID)); e != nil {
 		util.UpdateProxyScore(px, false)
 		//TODO maybe it will not timeout when using a bad proxy, and shows chrome error page instead
-		log.Errorf("failed to navigate %s: %+v", url, e)
-		return tdmap, false, true
+		e = errors.Wrapf(e, "failed to navigate %s", url)
+		e = repeat.HintTemporary(e)
+		return
 	}
 	util.UpdateProxyScore(px, true)
 
 	//execute javascript to get data
-	rt := false
 	jsParam := func(symbol string) string {
-		return fmt.Sprintf(`var tparam = {symbol: "%s", newthour: "09:00", ssl: true};return true;`, symbol)
+		return fmt.Sprintf(`var tparam = {symbol: "%s", newthour: "09:00", ssl: true}; tparam;`, symbol)
 	}
 	jsGetData := `
-	window.globala = null;
-	KKE.api("datas.k.get", tparam, function(a){window.globala=a;});
-	while (window.globala == null) {
-		await new Promise(r => setTimeout(r, 200));
-	}
-	window.globala;
+		window.globala = false;
+		KKE.api("datas.k.get", tparam, function(a){window.globala=a;});
+		window.globala;
 	`
-	var data interface{}
+	var rt interface{}
 	if e = chromedp.Run(ctx,
 		chromedp.Evaluate(jsParam(symbol), &rt),
 		chromedp.Evaluate(jsGetData, &data),
 	); e != nil {
-		log.Errorf("failed to execute javascripts: %+v", e)
+		e = errors.Wrapf(e, "failed to execute javascripts to call js API")
+		e = repeat.HintTemporary(e)
+		return
+	}
+
+	for true {
+		if _, ok := data.(bool); !ok {
+			break
+		}
+		if e = chromedp.Run(ctx,
+			chromedp.Evaluate(`window.globala;`, &data),
+		); e != nil {
+			e = errors.Wrapf(e, "failed to execute javascripts to poll data")
+			e = repeat.HintTemporary(e)
+			return
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	return
+}
+
+func (s *SinaKlineFetcher) parse(code string, fr FetchRequest, data interface{}) (tdmap map[FetchRequest]*model.TradeData, e error) {
+	cycles := []model.CYTP{model.DAY, model.WEEK, model.MONTH}
+	var (
+		ok  bool
+		frs []FetchRequest
+		m   map[string]interface{}
+		a   []interface{}
+	)
+	if m, ok = data.(map[string]interface{}); !ok {
+		e = errors.New("unable to convert payload to map[string]interface{}")
+		e = repeat.HintTemporary(e)
+		return
+	}
+	if m, ok = m["data"].(map[string]interface{}); !ok {
+		e = errors.New("unable to convert 'data' field to map[string]interface{}")
+		e = repeat.HintTemporary(e)
+		return
+	}
+
+	var map2trdat = func(a []interface{}, req FetchRequest) (trdat *model.TradeData, e error) {
+		trdat = &model.TradeData{
+			Code:          code,
+			Source:        req.RemoteSource,
+			Cycle:         req.Cycle,
+			Reinstatement: req.Reinstate,
+		}
+		var m map[string]interface{}
+		var ok bool
+		for i, el := range a {
+			if m, ok = el.(map[string]interface{}); !ok {
+				e = errors.Errorf("unable to convert #%d element to map. found: %+v", i, el)
+				return
+			}
+			b := &model.TradeDataBasic{
+				Code: code,
+				Klid: i,
+			}
+			trdat.Base = append(trdat.Base, b)
+			if d, ok := m["day"].(string); ok {
+				b.Date = strings.ReplaceAll(d, "/", "-")
+			} else {
+				e = errors.Errorf("unable to convert #%d element 'day' to string. found: %+v", i, el)
+				return
+			}
+			if b.Open, ok = m["open"].(float64); !ok {
+				e = errors.Errorf("unable to convert #%d element 'open' to float64. found: %+v", i, el)
+				return
+			}
+			if b.Close, ok = m["close"].(float64); !ok {
+				e = errors.Errorf("unable to convert #%d element 'close' to float64. found: %+v", i, el)
+				return
+			}
+			if b.High, ok = m["high"].(float64); !ok {
+				e = errors.Errorf("unable to convert #%d element 'high' to float64. found: %+v", i, el)
+				return
+			}
+			if b.Low, ok = m["low"].(float64); !ok {
+				e = errors.Errorf("unable to convert #%d element 'low' to float64. found: %+v", i, el)
+				return
+			}
+			if f, ok := m["volume"].(float64); ok {
+				b.Volume = sql.NullFloat64{Float64: f, Valid: true}
+			} else {
+				e = errors.Errorf("unable to convert #%d element 'volume' to float64. found: %+v", i, el)
+				return
+			}
+		}
+		return
+	}
+
+	for _, c := range cycles {
+		newFr := FetchRequest{
+			RemoteSource: fr.RemoteSource,
+			LocalSource:  fr.LocalSource,
+			Cycle:        c,
+			Reinstate:    fr.Reinstate,
+		}
+		frs = append(frs, newFr)
+		var field string
+		switch c {
+		case model.DAY:
+			field = "day"
+		case model.WEEK:
+			field = "week"
+		case model.MONTH:
+			field = "month"
+		}
+		if a, ok = m[field].([]interface{}); !ok {
+			e = errors.Errorf("unable to convert '%s' field to []interface{}", field)
+			e = repeat.HintTemporary(e)
+			return
+		}
+		if tdmap[newFr], e = map2trdat(a, newFr); e != nil {
+			e = errors.Errorf("error during '%s' field element conversion to trade data", field)
+			e = repeat.HintTemporary(e)
+			return
+		}
+	}
+
+	s.markComplete(code, frs...)
+	return
+}
+
+//Handle forward/backward reinstate scenarios.
+//Load non-reinstate data from local database.
+//The process will fail if if non-reinstate kline has not yet been fed to database.
+//Otherwise, it loads reinstate factors from remote,
+//then calculates reinstate kline based on non-reinstate kline and reinstatement factors.
+func (s *SinaKlineFetcher) reinstate(stk *model.Stock, fr FetchRequest) (
+	tdmap map[FetchRequest]*model.TradeData, suc, retry bool) {
+	code := stk.Code
+	var px *util.Proxy
+	var e error
+	if px, e = util.RandomProxy(conf.Args.DataSource.Sina.DirectProxyWeight); e != nil {
+		log.Errorf("%s failed to get random proxy: %+v", code, e)
 		return tdmap, false, true
 	}
 
-	log.Debugf("%+v", data)
+	var ua string
+	if ua, e = util.PickUserAgent(); e != nil {
+		log.Errorf("%s failed to get user agent: %+v", code, e)
+		return tdmap, false, true
+	}
+	hd := map[string]string{
+		"User-Agent": ua,
+	}
+	symbol := strings.ToLower(stk.Market.String) + stk.Code
+	rtype := "hfq"
+	if model.Forward == fr.Reinstate {
+		rtype = "qfq"
+	}
+	url := fmt.Sprintf(`https://finance.sina.com.cn/realstock/company/%s/%s.js`, symbol, rtype)
 
-	//TODO extract kline data to tdmap, and cater for Cycle and Reinstate?
+	var res *http.Response
+	if res, e = util.HTTPGet(url, hd, px); e != nil {
+		log.Errorf("%s failed to get http response from %s: %+v", code, url, e)
+		return tdmap, false, true
+	}
+	defer res.Body.Close()
+	data, e := ioutil.ReadAll(res.Body)
+	if e != nil {
+		log.Errorf("%s failed to read http response body from %s: %+v", code, url, e)
+		util.UpdateProxyScore(px, false)
+		return tdmap, false, true
+	}
+	util.UpdateProxyScore(px, true)
+	if len(data) == 0 {
+		log.Errorf("%s no data returned from %s", code, url)
+		return tdmap, false, true
+	}
+
+	retString := string(data)
+	pattern := `.*(\{[^\/]*\})`
+	r := regexp.MustCompile(pattern).FindStringSubmatch(retString)
+	var jsonStr string
+	if len(r) > 0 {
+		jsonStr = r[len(r)-1]
+	} else {
+		log.Errorf("%s failed to extract json string from %s response body: %s", code, url, retString)
+		return tdmap, false, true
+	}
+
+	rs := &struct {
+		Total int
+		Data  []struct {
+			D string  //date 2016-06-24
+			F float64 //factor
+		}
+	}{}
+	if e = json.Unmarshal([]byte(jsonStr), rs); e != nil {
+		log.Errorf("%s failed to parse json string from %s: %s", code, url, jsonStr)
+		return tdmap, false, true
+	}
+	if rs.Total != len(rs.Data) {
+		log.Errorf("%s total[%d] != data len[%d] from %s: %s", code, rs.Total, len(rs.Data), url, jsonStr)
+		return tdmap, false, true
+	}
+	var dates []string
+	fmap := make(map[string]float64)
+	for _, el := range rs.Data {
+		dates = append(dates, el.D)
+		fmap[el.D] = el.F
+	}
+
+	//TODO sort dates, load non-reinstate data from db, calculate reinstated trade data and return.
+
+	return
+}
+
+//fetchKline from specific data source for the given stock.
+func (s *SinaKlineFetcher) fetchKline(stk *model.Stock, fr FetchRequest, incr bool) (
+	tdmap map[FetchRequest]*model.TradeData, suc, retry bool) {
+	//if the fetch request has been completed previously, return immediately
+	if s.hasCompleted(stk.Code, fr) {
+		return tdmap, true, false
+	}
+
+	switch fr.Reinstate {
+	case model.Backward, model.Forward:
+		return s.reinstate(stk, fr)
+	}
+
+	var data interface{}
+	var e error
+	if data, e = s.chrome(stk, fr); e != nil {
+		log.Error(e)
+		if repeat.IsTemporary(e) {
+			retry = true
+		}
+		return
+	}
+
+	// extract kline data to tdmap, and all types of Cycle will be populated automatically
+	if tdmap, e = s.parse(stk.Code, fr, data); e != nil {
+		log.Error(e)
+		if repeat.IsTemporary(e) {
+			retry = true
+		}
+		return
+	}
 
 	return
 }

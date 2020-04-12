@@ -21,7 +21,6 @@ func TestSinaKlineFetcher_fetchKline(t *testing.T) {
 		wantSuc   bool
 		wantRetry bool
 	}{
-		// TODO: Add test cases.
 		{
 			name: "First Test",
 			args: args{

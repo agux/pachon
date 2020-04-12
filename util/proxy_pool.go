@@ -78,10 +78,16 @@ func RandomProxy(ratio []float64) (px *Proxy, e error) {
 	}
 	if dice <= mw {
 		//master proxy
-		ss := strings.Split(conf.Args.Network.MasterProxyAddr, ":")
+		var host, port string
+		host, port, e = net.SplitHostPort(conf.Args.Network.MasterProxyAddr)
+		if e != nil {
+			e = errors.Wrapf(e, "unable to parse host:port string %s", conf.Args.Network.MasterProxyAddr)
+			log.Error(e)
+			return
+		}
 		px = &Proxy{
-			Host: ss[0],
-			Port: ss[1],
+			Host: host,
+			Port: port,
 			Type: "socks5",
 		}
 	} else {
