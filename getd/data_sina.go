@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -49,8 +50,32 @@ func (s *SinaKlineFetcher) markComplete(code string, fr ...FetchRequest) {
 
 //fetches day, week, and month kline data all in one go
 func (s *SinaKlineFetcher) getExtraRequests(frIn []FetchRequest) (frOut []FetchRequest) {
-	//TODO derives corresponding cycles for each reinstate type
-	panic("not implemented yet")
+	// derives corresponding cycles for each reinstate type
+	rtm := make(map[model.Rtype]map[model.CYTP]FetchRequest)
+	var cym map[model.CYTP]FetchRequest
+	var fr FetchRequest
+	var ok bool
+	for _, fr = range frIn {
+		if cym, ok = rtm[fr.Reinstate]; !ok {
+			cym = make(map[model.CYTP]FetchRequest)
+			rtm[fr.Reinstate] = cym
+		}
+		cym[fr.Cycle] = fr
+	}
+	cycles := []model.CYTP{model.DAY, model.WEEK, model.MONTH}
+	for _, cym = range rtm {
+		var mis []model.CYTP
+		for _, c := range cycles {
+			if fr, ok = cym[c]; !ok {
+				mis = append(mis, c)
+			}
+		}
+		for _, mc := range mis {
+			fr.Cycle = mc
+			frOut = append(frOut, fr)
+		}
+	}
+	return
 }
 
 func (s *SinaKlineFetcher) cleanup() {
@@ -93,7 +118,6 @@ func (s *SinaKlineFetcher) chrome(stk *model.Stock, fr FetchRequest) (data inter
 		chromedp.Navigate(url),
 		chromedp.WaitReady(chartID)); e != nil {
 		util.UpdateProxyScore(px, false)
-		//TODO maybe it will not timeout when using a bad proxy, and shows chrome error page instead
 		e = errors.Wrapf(e, "failed to navigate %s", url)
 		e = repeat.HintTemporary(e)
 		return
@@ -246,7 +270,25 @@ func (s *SinaKlineFetcher) parse(code string, fr FetchRequest, data interface{})
 //then calculates reinstate kline based on non-reinstate kline and reinstatement factors.
 func (s *SinaKlineFetcher) reinstate(stk *model.Stock, fr FetchRequest) (
 	tdmap map[FetchRequest]*model.TradeData, suc, retry bool) {
+
 	code := stk.Code
+
+	//load non-reinstate data from db
+	trdat := GetTrDataDB(
+		code,
+		TrDataQry{
+			LocalSource: fr.LocalSource,
+			Cycle:       fr.Cycle,
+			Reinstate:   model.None,
+			Basic:       true,
+		},
+		0,
+		true)
+	if trdat.Empty() {
+		log.Warnf("%s no non-reinstate data, skipping", code)
+		return tdmap, true, false
+	}
+
 	var px *util.Proxy
 	var e error
 	if px, e = util.RandomProxy(conf.Args.DataSource.Sina.DirectProxyWeight); e != nil {
@@ -312,6 +354,9 @@ func (s *SinaKlineFetcher) reinstate(stk *model.Stock, fr FetchRequest) (
 	if rs.Total != len(rs.Data) {
 		log.Errorf("%s total[%d] != data len[%d] from %s: %s", code, rs.Total, len(rs.Data), url, jsonStr)
 		return tdmap, false, true
+	} else if rs.Total == 0 {
+		log.Infof("%s no reinstate data for %v", code, fr.Cycle)
+		return tdmap, true, false
 	}
 	var dates []string
 	fmap := make(map[string]float64)
@@ -320,9 +365,68 @@ func (s *SinaKlineFetcher) reinstate(stk *model.Stock, fr FetchRequest) (
 		fmap[el.D] = el.F
 	}
 
-	//TODO sort dates, load non-reinstate data from db, calculate reinstated trade data and return.
+	//sort dates, calculate reinstated trade data and return.
+	sort.Sort(sort.Reverse(sort.StringSlice(dates)))
 
-	return
+	i := 0
+	pop := func() (d string, f float64) {
+		if i < len(dates) {
+			d = dates[i]
+			f = fmap[d]
+			i++
+		}
+		return
+	}
+
+	backward := func() {
+		d, f := pop()
+		for _, b := range trdat.Base {
+			for len(d) > 0 && b.Date < d {
+				d, f = pop()
+			}
+			if len(d) > 0 {
+				b.Open *= f
+				b.High *= f
+				b.Low *= f
+				b.Close *= f
+			}
+			b.Varate.Valid = false
+			b.VarateHigh.Valid = false
+			b.VarateLow.Valid = false
+			b.VarateOpen.Valid = false
+		}
+	}
+
+	forward := func() {
+		d, f := pop()
+		for _, b := range trdat.Base {
+			for len(d) > 0 && b.Date < d {
+				d, f = pop()
+			}
+			if len(d) > 0 {
+				b.Open /= f
+				b.High /= f
+				b.Low /= f
+				b.Close /= f
+			}
+			b.Varate.Valid = false
+			b.VarateHigh.Valid = false
+			b.VarateLow.Valid = false
+			b.VarateOpen.Valid = false
+		}
+	}
+
+	switch fr.Reinstate {
+	case model.Backward:
+		backward()
+	case model.Forward:
+		forward()
+	}
+	trdat.Source = fr.RemoteSource
+	trdat.Reinstatement = fr.Reinstate
+	tdmap[fr] = trdat
+
+	return tdmap, true, false
 }
 
 //fetchKline from specific data source for the given stock.
