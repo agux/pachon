@@ -32,6 +32,9 @@ type SinaKlineFetcher struct {
 func (s *SinaKlineFetcher) hasCompleted(code string, fr FetchRequest) bool {
 	s.crLock.Lock()
 	defer s.crLock.Unlock()
+	if s.completedRequest == nil {
+		return false
+	}
 	if creqs := s.completedRequest[code]; len(creqs) > 0 {
 		for _, creq := range creqs {
 			if creq == fr {
@@ -45,6 +48,9 @@ func (s *SinaKlineFetcher) hasCompleted(code string, fr FetchRequest) bool {
 func (s *SinaKlineFetcher) markComplete(code string, fr ...FetchRequest) {
 	s.crLock.Lock()
 	defer s.crLock.Unlock()
+	if s.completedRequest == nil {
+		s.completedRequest = make(map[string][]FetchRequest)
+	}
 	s.completedRequest[code] = fr
 }
 
@@ -230,6 +236,7 @@ func (s *SinaKlineFetcher) parse(code string, fr FetchRequest, data interface{})
 		return
 	}
 
+	tdmap = make(map[FetchRequest]*model.TradeData)
 	for _, c := range cycles {
 		newFr := FetchRequest{
 			RemoteSource: fr.RemoteSource,
