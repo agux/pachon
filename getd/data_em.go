@@ -17,6 +17,10 @@ import (
 	"github.com/ssgreg/repeat"
 )
 
+func init() {
+	registerKlineFetcher(model.EM, &EmKlineFetcher{})
+}
+
 //EmKlineFetcher is capable of fetching kline data from eastmoney.
 type EmKlineFetcher struct {
 	//key(code_cycle_rtype) -> []*model.TradeDataBasic

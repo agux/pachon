@@ -86,6 +86,7 @@ skip_xdxr = false
 skip_kline_vld = true
 skip_kline_pre = false
 skip_klines = false
+skip_index_list = false
 skip_indices_vld = false
 skip_indices = false
 skip_basics_update = false

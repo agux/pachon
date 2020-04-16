@@ -20,6 +20,10 @@ import (
 	"github.com/ssgreg/repeat"
 )
 
+func init() {
+	registerKlineFetcher(model.XQ, &XqKlineFetcher{})
+}
+
 //XqKlineFetcher is capable of fetching kline data from Xueqiu.
 type XqKlineFetcher struct {
 	codemap map[string]string

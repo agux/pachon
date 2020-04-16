@@ -361,23 +361,8 @@ func resolveDSMap(dsmap map[model.DataSource][]FetchRequest) {
 }
 
 func resolveKlineFetcher(src model.DataSource) (f klineFetcher) {
-	switch src {
-	case model.WHT:
-		// tdmap, lkmap, suc = getKlineWht(stk, kltnv)
-		log.Panicf("unsupported data source: %+v", src)
-	case model.THS:
-		// qmap, lkmap, suc = getKlineThs(stk, kltnv)
-		log.Panicf("unsupported data source: %+v", src)
-	case model.TC:
-		// tdmap, lkmap, suc = getKlineTc(stk, kltnv)
-		log.Panicf("unsupported data source: %+v", src)
-	case model.XQ:
-		f = &XqKlineFetcher{}
-	case model.EM:
-		f = &EmKlineFetcher{}
-	case model.Sina:
-		f = &SinaKlineFetcher{}
-	default:
+	ok := false
+	if f, ok = registry[src]; !ok {
 		log.Panicf("unsupported data source: %+v", src)
 	}
 	return
@@ -1153,15 +1138,15 @@ func insertMinibatchV2(table string, cols, fields []string, v reflect.Value) (c 
 func insertTradeData(table string, cols, fields []string, rows interface{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 	v := reflect.ValueOf(rows)
-	len := v.Len()
+	leng := v.Len()
 	batchSize := 1000
 	c := 0
-	for idx := 0; idx < len; idx += batchSize {
-		end := int(math.Min(float64(len), float64(idx+batchSize)))
+	for idx := 0; idx < leng; idx += batchSize {
+		end := int(math.Min(float64(leng), float64(idx+batchSize)))
 		c += insertMinibatchV2(table, cols, fields, v.Slice(idx, end))
 	}
-	if len != c {
-		log.Panicf("unmatched given records and actual inserted records: %d vs. %d", len, c)
+	if leng != c {
+		log.Panicf("unmatched given records and actual inserted records: %d vs. %d", leng, c)
 	}
 }
 

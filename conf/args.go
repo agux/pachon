@@ -112,6 +112,7 @@ type Arguments struct {
 		SkipXdxr              bool                `mapstructure:"skip_xdxr"`
 		SkipKlines            bool                `mapstructure:"skip_klines"`
 		SkipFsStats           bool                `mapstructure:"skip_fs_stats"`
+		SkipIndexList         bool                `mapstructure:"skip_index_list"`
 		SkipIndicesVld        bool                `mapstructure:"skip_indices_vld"`
 		SkipIndices           bool                `mapstructure:"skip_indices"`
 		SkipBasicsUpdate      bool                `mapstructure:"skip_basics_update"`

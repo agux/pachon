@@ -23,10 +23,19 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
+func init() {
+	registerKlineFetcher(model.Sina, &SinaKlineFetcher{})
+}
+
 //SinaKlineFetcher fetches kline from sina
 type SinaKlineFetcher struct {
 	completedRequest map[string][]FetchRequest
 	crLock           sync.RWMutex
+}
+
+func (s *SinaKlineFetcher) fetchIndexList() (list []*model.IdxLst) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (s *SinaKlineFetcher) hasCompleted(code string, fr FetchRequest) bool {

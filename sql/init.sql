@@ -35,6 +35,13 @@ INSERT INTO `secu`.`idxlst` (`src`,`market`,`code`,`name`) VALUES ('xq','SH','SH
 INSERT INTO `secu`.`idxlst` (`src`,`market`,`code`,`name`) VALUES ('xq','SH','SH000300','沪深300');
 INSERT INTO `secu`.`idxlst` (`src`,`market`,`code`,`name`) VALUES ('xq','SZ','sz399001','深证指数');
 INSERT INTO `secu`.`idxlst` (`src`,`market`,`code`,`name`) VALUES ('xq','SZ','sz399006','创业板指');
+INSERT INTO `secu`.`idxlst` (`src`, `market`, `code`, `name`) VALUES ('sina', 'US', 'dji', '道琼斯');
+INSERT INTO `secu`.`idxlst` (`src`, `market`, `code`, `name`) VALUES ('sina', 'US', 'ixic', '纳斯达克');
+INSERT INTO `secu`.`idxlst` (`src`, `market`, `code`, `name`) VALUES ('sina', 'US', 'inx', '标普500指数');
+INSERT INTO `secu`.`idxlst` (`src`, `market`, `code`, `name`) VALUES ('sina', 'HK', 'HSI', '恒生指数');
+INSERT INTO `secu`.`idxlst` (`src`, `market`, `code`, `name`) VALUES ('sina', 'HK', 'HSCEI', '国企指数');
+INSERT INTO `secu`.`idxlst` (`src`, `market`, `code`, `name`) VALUES ('sina', 'HK', 'HSCCI', '红筹指数');
+
 
 
 /*

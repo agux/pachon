@@ -136,12 +136,20 @@ func GetV2() {
 		stks = KlinePostProcess(stks)
 	}
 
+	if !conf.Args.DataSource.SkipIndexList {
+		stidx := time.Now()
+		GetIndexList()
+		StopWatch("GET_INDEX_LIST", stidx)
+	} else {
+		log.Printf("skipped fetching index list from web")
+	}
+
 	if !conf.Args.DataSource.SkipIndicesVld {
 		stidx := time.Now()
 		GetIndicesV2(true)
 		StopWatch("GET_INDICES_VLD", stidx)
 	} else {
-		log.Printf("skipped validation index data from web")
+		log.Printf("skipped fetching validation index data from web")
 	}
 
 	var allIdx, sucIdx []*model.IdxLst
@@ -153,7 +161,7 @@ func GetV2() {
 			allstks.Add(&model.Stock{Code: idx.Code, Name: idx.Name})
 		}
 	} else {
-		log.Printf("skipped index data from web")
+		log.Printf("skipped fetching index data from web")
 	}
 
 	if !conf.Args.DataSource.SkipBasicsUpdate {
