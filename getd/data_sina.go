@@ -317,10 +317,10 @@ func (s *SinaKlineFetcher) parse(code string, fr FetchRequest, data interface{})
 		return
 	}
 
-	var map2trdat = func(a []interface{}, req FetchRequest) (trdat *model.TradeData, e error) {
+	map2trdat := func(a []interface{}, req FetchRequest) (trdat *model.TradeData, e error) {
 		trdat = &model.TradeData{
 			Code:          code,
-			Source:        req.RemoteSource,
+			Source:        req.LocalSource,
 			Cycle:         req.Cycle,
 			Reinstatement: req.Reinstate,
 		}
@@ -599,6 +599,8 @@ func (s *SinaKlineFetcher) fetchKline(stk *model.Stock, fr FetchRequest, incr bo
 		}
 		return
 	}
+
+	suc = true
 
 	return
 }

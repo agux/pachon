@@ -34,9 +34,9 @@ type DataSource string
 const (
 	//UnknownCytp sor the data
 	UnknownCytp CYTP = "Unknown"
-	DAY         CYTP = "D"
-	WEEK        CYTP = "W"
-	MONTH       CYTP = "M"
+	DAY         CYTP = "DAY"
+	WEEK        CYTP = "WEEK"
+	MONTH       CYTP = "MONTH"
 	M120        CYTP = "M120"
 	M60         CYTP = "M60"
 	M30         CYTP = "M30"
