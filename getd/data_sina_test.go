@@ -39,3 +39,22 @@ func TestSinaKlineFetcher_fetchKline(t *testing.T) {
 		})
 	}
 }
+
+func TestSinaKlineFetcher_fetchIndexList(t *testing.T) {
+	tests := []struct {
+		name     string
+		wantList []*model.IdxLst
+		wantErr  bool
+	}{
+		{
+			name: "Basic",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &SinaKlineFetcher{}
+			gotList, _ := s.fetchIndexList()
+			log.Debugf("fetched index from list: %d", len(gotList))
+		})
+	}
+}

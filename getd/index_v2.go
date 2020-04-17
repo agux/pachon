@@ -22,8 +22,8 @@ func GetIndexList() {
 	var (
 		f    klineFetcher
 		ok   bool
-		list []*model.IdxLst
 		e    error
+		list []*model.IdxLst
 	)
 	genop := func(ilf indexListFetcher) func(c int) (e error) {
 		return func(c int) (e error) {
@@ -47,7 +47,8 @@ func GetIndexList() {
 		if f, ok = registry[source]; ok {
 			if ilf, ok := f.(indexListFetcher); ok {
 				log.Infof("fetching index list from %v", source)
-				if e = try(ilf); e != nil {
+				if e = try(ilf); e == nil {
+					log.Infof("%d indices fetched from %s", len(list), source)
 					saveIdxLst(list)
 				}
 			}

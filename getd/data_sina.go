@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -33,9 +34,131 @@ type SinaKlineFetcher struct {
 	crLock           sync.RWMutex
 }
 
-func (s *SinaKlineFetcher) fetchIndexList() (list []*model.IdxLst) {
-	//TODO implement me
-	panic("implement me")
+func (s *SinaKlineFetcher) fetchIndexList() (list []*model.IdxLst, e error) {
+	var (
+		urlt = `http://gu.sina.cn/hq/api/openapi.php/` +
+			`StockV2Service.getNodeList?sort=percent&asc=0&page=%d&num=600&node=hs_s&dpc=1`
+		cont = true
+		px   *util.Proxy
+		ua   string
+		res  *http.Response
+		data []byte
+		ok   bool
+		mp   map[string]interface{}
+		arit []interface{}
+	)
+	for i := 1; cont; i++ {
+		if px, e = util.RandomProxy(conf.Args.DataSource.Sina.DirectProxyWeight); e != nil {
+			e = repeat.HintTemporary(e)
+			return
+		}
+		if ua, e = util.PickUserAgent(); e != nil {
+			e = repeat.HintTemporary(e)
+			return
+		}
+		hd := map[string]string{
+			"User-Agent": ua,
+		}
+		link := fmt.Sprintf(urlt, i)
+		if res, e = util.HTTPGet(link, hd, px); e != nil {
+			e = repeat.HintTemporary(e)
+			return
+		}
+		defer res.Body.Close()
+		data, e = ioutil.ReadAll(res.Body)
+		if e != nil {
+			util.UpdateProxyScore(px, false)
+			e = repeat.HintTemporary(e)
+			log.Errorf("failed to read response body: %+v", e)
+			return
+		}
+		util.UpdateProxyScore(px, true)
+		if len(data) == 0 {
+			log.Errorf("no data returned from %s", link)
+			e = repeat.HintTemporary(e)
+			return
+		}
+
+		if e = json.Unmarshal(data, &mp); e != nil {
+			log.Errorf("failed to unmarshal json. response string: %+v", string(data))
+			e = repeat.HintTemporary(e)
+			return
+		}
+		if mp, ok = mp["result"].(map[string]interface{}); !ok {
+			e = errors.Errorf("cannot get 'result' from root map: %+v", mp)
+			e = repeat.HintTemporary(e)
+			log.Error(e)
+			return
+		}
+		if mp, ok = mp["data"].(map[string]interface{}); !ok {
+			e = errors.Errorf("cannot get 'data' from 'result' map: %+v", mp)
+			e = repeat.HintTemporary(e)
+			log.Error(e)
+			return
+		}
+
+		pgNum, pgCur := 0., 0.
+		if pgNum, ok = mp["pageNum"].(float64); !ok {
+			e = errors.Errorf("cannot get 'pageNum' from 'data' map: %+v, %+v",
+				mp["pageNum"], reflect.TypeOf(mp["pageNum"]))
+			e = repeat.HintTemporary(e)
+			log.Error(e)
+			return
+		}
+		if pgCur, ok = mp["pageCur"].(float64); !ok {
+			e = errors.Errorf("cannot get 'pageCur' from 'data' map: %+v, %+v",
+				mp["pageCur"], reflect.TypeOf(mp["pageCur"]))
+			e = repeat.HintTemporary(e)
+			log.Error(e)
+			return
+		}
+		if pgNum == pgCur {
+			cont = false
+		}
+
+		if arit, ok = mp["data"].([]interface{}); !ok {
+			e = errors.Errorf("cannot get 'data' array from 'data' map: %+v", mp)
+			e = repeat.HintTemporary(e)
+			log.Error(e)
+			return
+		}
+
+		var symbol, name string
+		var m, ext map[string]interface{}
+		for i, itf := range arit {
+			if m, ok = itf.(map[string]interface{}); !ok {
+				e = errors.Errorf("cannot convert #%d 'data' element to map: %+v", i, arit)
+				e = repeat.HintTemporary(e)
+				log.Error(e)
+				return
+			}
+			if ext, ok = m["ext"].(map[string]interface{}); !ok {
+				e = errors.Errorf("cannot get 'ext' from #%d 'data' element: %+v", i, arit)
+				e = repeat.HintTemporary(e)
+				log.Error(e)
+				return
+			}
+			if symbol, ok = ext["symbol"].(string); !ok {
+				e = errors.Errorf("cannot get 'symbol' from 'data[%d].ext': %+v", i, arit)
+				e = repeat.HintTemporary(e)
+				log.Error(e)
+				return
+			}
+			if name, ok = ext["name"].(string); !ok {
+				e = errors.Errorf("cannot get 'name' from 'data[%d].ext': %+v", i, arit)
+				e = repeat.HintTemporary(e)
+				log.Error(e)
+				return
+			}
+			list = append(list, &model.IdxLst{
+				Src:    string(model.Sina),
+				Market: strings.ToUpper(symbol[:2]),
+				Code:   symbol[2:],
+				Name:   name,
+			})
+		}
+	}
+	return
 }
 
 func (s *SinaKlineFetcher) hasCompleted(code string, fr FetchRequest) bool {
