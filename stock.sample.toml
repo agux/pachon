@@ -74,7 +74,7 @@ market_close_time = "15:30:00"
 kline = "wht"
 kline_failure_retry = 25
 
-kline_types = [{reinstate = "backward", cycle = "D"}]
+kline_types = [{reinstate = "backward", cycle = "DAY"}]
 
 index = "tencent"
 #industry = "tencent.tc"

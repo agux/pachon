@@ -34,8 +34,7 @@ func TestSinaKlineFetcher_fetchKline(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &SinaKlineFetcher{}
-			tdmap, _, _ := s.fetchKline(tt.args.stk, tt.args.fr, tt.args.incr)
-			log.Debug(tdmap)
+			s.fetchKline(tt.args.stk, tt.args.fr, tt.args.incr)
 		})
 	}
 }

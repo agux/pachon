@@ -1558,7 +1558,8 @@ func saveTradeData(outstks chan *model.Stock,
 	lock := new(sync.RWMutex)
 	pk := "progress"
 	snmap.Store(pk, 0)
-	for _, ch := range dbcMap {
+	for fr, ch := range dbcMap {
+		log.Debugf("monitoring channel for fetch request: %+v", fr)
 		wg := new(sync.WaitGroup)
 		wgs = append(wgs, wg)
 		wg.Add(1)

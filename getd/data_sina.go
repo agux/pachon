@@ -191,7 +191,7 @@ func (s *SinaKlineFetcher) getExtraRequests(frIn []FetchRequest) (frOut []FetchR
 	// derives corresponding cycles for each reinstate type
 	rtm := make(map[model.Rtype]map[model.CYTP]FetchRequest)
 	var cym map[model.CYTP]FetchRequest
-	var fr FetchRequest
+	var fr, cfr FetchRequest
 	var ok bool
 	for _, fr = range frIn {
 		if cym, ok = rtm[fr.Reinstate]; !ok {
@@ -204,7 +204,9 @@ func (s *SinaKlineFetcher) getExtraRequests(frIn []FetchRequest) (frOut []FetchR
 	for _, cym = range rtm {
 		var mis []model.CYTP
 		for _, c := range cycles {
-			if fr, ok = cym[c]; !ok {
+			if cfr, ok = cym[c]; ok {
+				fr = cfr
+			} else {
 				mis = append(mis, c)
 			}
 		}
