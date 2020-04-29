@@ -171,7 +171,7 @@ corl_time_shift = 4
 # how much more samples are needed to meet the "corl_portion" target
 corl_resume_mode = true
 
-feature_cols = ["lr", "lr_vol"]
+feature_cols = ["close", "volume"]
 
 xcorl_shift = 1
 wcc_max_shift = 3

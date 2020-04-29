@@ -361,7 +361,8 @@ func (s *SinaKlineFetcher) parse(code string, fr FetchRequest, data interface{})
 				return
 			}
 			if f, ok := m["volume"].(float64); ok {
-				b.Volume = sql.NullFloat64{Float64: f, Valid: true}
+				//convert unit from hands to shares
+				b.Volume = sql.NullFloat64{Float64: f * 100., Valid: true}
 			} else {
 				e = errors.Errorf("unable to convert #%d element 'volume' to float64. found: %+v", i, el)
 				return
