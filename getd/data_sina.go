@@ -153,7 +153,7 @@ func (s *SinaKlineFetcher) fetchIndexList() (list []*model.IdxLst, e error) {
 			list = append(list, &model.IdxLst{
 				Src:    string(model.Sina),
 				Market: strings.ToUpper(symbol[:2]),
-				Code:   symbol[2:],
+				Code:   symbol,
 				Name:   name,
 			})
 		}
@@ -239,11 +239,9 @@ func (s *SinaKlineFetcher) chrome(stk *model.Stock, fr FetchRequest) (data inter
 	ctx, c = chromedp.NewContext(ctx)
 	defer c()
 
-	url := fmt.Sprintf(`https://quotes.sina.cn/hs/company/quotes/view/%s%s`,
-		strings.ToLower(stk.Market.String),
-		stk.Code)
+	symbol := strings.ToLower(stk.Code)
+	url := fmt.Sprintf(`https://quotes.sina.cn/hs/company/quotes/view/%s`, symbol)
 	chartID := `#hq_chart`
-	symbol := strings.ToLower(stk.Market.String) + stk.Code
 	switch stk.Market.String {
 	case model.MarketUS:
 		url = fmt.Sprintf(`https://gu.sina.cn/us/hq/quotes.php?code=%s`, stk.Code)
