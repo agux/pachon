@@ -3022,7 +3022,7 @@ ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8mb4
 COLLATE = utf8mb4_0900_ai_ci
 COMMENT = 'Daily Kline (Backward Reinstate)'
-ROW_FORMAT = COMPRESSED PARTITION BY LINEAR HASH(ym) PARTITIONS 512 ;
+ROW_FORMAT = COMPRESSED PARTITION BY KEY(code) PARTITIONS 512 ;
 
 CREATE INDEX `KLINE_D_B_IDX1` ON `secu`.`kline_d_b` (`code` ASC, `klid` ASC) VISIBLE;
 
@@ -4957,6 +4957,19 @@ DEFAULT CHARACTER SET = utf8mb4
 COLLATE = utf8mb4_0900_ai_ci;
 
 CREATE UNIQUE INDEX `XDXR_IDX1` ON `secu`.`xdxr` (`code` ASC, `xdxr_date` ASC, `reg_date` ASC, `idx` ASC) VISIBLE;
+
+CREATE TABLE `imputed_data` (
+  `table` varchar(32) NOT NULL,
+  `field` varchar(32) NOT NULL,
+  `code` varchar(8) NOT NULL,
+  `date` varchar(20) NOT NULL,
+  `klid` int NOT NULL,
+  `val` double NOT NULL,
+  `source` varchar(45) NOT NULL,
+  `udate` varchar(10) NOT NULL,
+  `utime` varchar(8) NOT NULL,
+  PRIMARY KEY (`table`,`field`,`code`,`date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 SET SQL_MODE=@OLD_SQL_MODE;
