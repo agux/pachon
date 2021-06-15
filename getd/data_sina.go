@@ -281,7 +281,7 @@ func (s *SinaKlineFetcher) chrome(stk *model.Stock, fr FetchRequest) (data inter
 		return
 	}
 
-	for true {
+	for {
 		if _, ok := data.(bool); !ok {
 			break
 		}

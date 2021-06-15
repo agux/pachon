@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"database/sql"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -37,47 +38,10 @@ func PickUserAgent() (ua string, e error) {
 	}
 	//first, load from database
 	agents := loadUserAgents()
-	refresh := false
-	if len(agents) != 0 {
-		var latest time.Time
-		latest, e = time.Parse(global.DateTimeFormat, agents[0].UpdatedAt)
-		if e != nil {
-			return
-		}
-		if time.Now().Sub(latest).Hours() >=
-			float64(time.Duration(conf.Args.Network.UserAgentLifespan*24)*time.Hour) {
-			refresh = true
-		}
-	}
-	//if none, or outdated, refresh table from remote server
-	if refresh || len(agents) == 0 {
-		//download sample file and load into database server
-		log.Info("fetching user agent list from remote server...")
-		exePath, e := os.Executable()
-		if e != nil {
-			log.Panicln("failed to get executable path", e)
-		}
-		path, e := filepath.EvalSymlinks(exePath)
-		if e != nil {
-			log.Panicln("failed to evaluate symlinks, ", exePath, e)
-		}
-		local := filepath.Join(filepath.Dir(path), filepath.Base(conf.Args.Network.UserAgents))
-		if _, e := os.Stat(local); e == nil {
-			os.Remove(local)
-		}
-		e = downloadFile(local, conf.Args.Network.UserAgents)
-		defer os.Remove(local)
-		if e != nil {
-			log.Panicln("failed to download user agent sample file ", conf.Args.Network.UserAgents, e)
-		}
-		agents, e = readCSV(local)
-		if e != nil {
-			log.Panicln("failed to download and read csv, ", local, e)
-		}
-		mergeAgents(agents)
-		log.Infof("successfully fetched %d user agents from remote server.", len(agentPool))
-		//reload agents from database
-		agents = loadUserAgents()
+	if len(agents) == 0 {
+		e = errors.New("user_agents table is empty. try to populate this table with some valid entries.")
+		log.Warn(e)
+		return
 	}
 	for _, a := range agents {
 		agentPool = append(agentPool, a.UserAgent)
@@ -86,7 +50,7 @@ func PickUserAgent() (ua string, e error) {
 }
 
 func loadUserAgents() (agents []*UserAgent) {
-	_, e := dbmap.Select(&agents, "select * from user_agents where hardware_type = ? order by updated_at desc", "computer")
+	_, e := dbmap.Select(&agents, "select * from user_agents where user_agent is not null")
 	if e != nil {
 		if sql.ErrNoRows != e {
 			log.Panicln("failed to run sql", e)

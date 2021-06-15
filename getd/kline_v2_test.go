@@ -39,7 +39,7 @@ func TestTrDataQryCopy(t *testing.T) {
 	log.Debugf("qs:%+v", qs)
 }
 
-func TestLogFormat(t *testing.T){
+func TestLogFormat(t *testing.T) {
 	log.Debugf("- [%.2f%%]", 23.456)
 	log.Debugf("[%.2f%%]", 23.456)
 }
@@ -55,12 +55,13 @@ func TestTrDataQryMap(t *testing.T) {
 		q,
 		q,
 		q,
-		TrDataQry{
+		{
 			LocalSource: model.KlineMaster,
 			Cycle:       model.DAY,
 			Reinstate:   model.Backward,
 			Basic:       true,
-		}}
+		},
+	}
 	qs[1].LocalSource = model.EM
 	qs[1].Cycle = model.WEEK
 	qs[1].Reinstate = model.Forward
@@ -75,7 +76,7 @@ func TestTrDataQryMap(t *testing.T) {
 	log.Debugf("qmap:%+v", qmap)
 }
 
-func TestGetKlinesV2(t *testing.T){
+func TestGetKlinesV2(t *testing.T) {
 	s := &model.Stock{}
 	s.Code = "000001"
 	s.Name = "平安银行"
@@ -84,8 +85,8 @@ func TestGetKlinesV2(t *testing.T){
 	ss.Add(s)
 	GetKlinesV2(ss, FetchRequest{
 		RemoteSource: model.DataSource(conf.Args.DataSource.Kline),
-		LocalSource: model.KlineMaster,
-		Cycle: model.DAY,
-		Reinstate: model.Backward,
+		LocalSource:  model.KlineMaster,
+		Cycle:        model.DAY,
+		Reinstate:    model.Backward,
 	})
 }
