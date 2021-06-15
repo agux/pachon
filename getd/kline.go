@@ -956,7 +956,7 @@ func validateKline(stk *model.Stock, t model.DBTab, quotes []*model.Quote, lklid
 		return true
 	}
 	ex := make([]string, 0, 16)
-	vquotes := GetKlBtwnKlid(stk.Code, vtab, "["+string(lklid), "", false)
+	vquotes := GetKlBtwnKlid(stk.Code, vtab, fmt.Sprintf("[%d", lklid), "", false)
 	for i := 0; i < len(vquotes); i++ {
 		vq := vquotes[i]
 		if i >= len(quotes) {

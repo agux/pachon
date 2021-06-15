@@ -340,7 +340,7 @@ func fetchProxyFrom66IP(wg *sync.WaitGroup, chpx chan []string) {
 			}
 			host := strings.TrimSpace(s.Find("td:nth-child(1)").Text())
 			port := strings.TrimSpace(s.Find("td:nth-child(2)").Text())
-			if "0" == port {
+			if port == "0" {
 				//invalid port
 				return
 			}
@@ -460,7 +460,7 @@ func fetchProxyFromSocksProxy(wg *sync.WaitGroup, chpx chan []string) {
 	doc.Find("#proxylisttable tbody tr").Each(
 		func(i int, s *goquery.Selection) {
 			ptype := strings.TrimSpace(s.Find("td:nth-child(5)").Text())
-			if "Socks5" != ptype {
+			if ptype != "Socks5" {
 				return
 			}
 			host := strings.TrimSpace(s.Find("td:nth-child(1)").Text())

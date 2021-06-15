@@ -16,11 +16,11 @@ func TestWriteJSONFile(t *testing.T) {
 		5428,
 		[]string{"000002", "000003", "000004"},
 		[][][]float64{
-			[][]float64{
+			{
 				[]float64{1, 2, 3, 4, 5},
 				[]float64{2, 3, 4, 5, 6},
 			},
-			[][]float64{
+			{
 				[]float64{5, 4, 3, 2, 1},
 				[]float64{9, 8, 7, 6, 5},
 			},

@@ -48,7 +48,7 @@ func HTTPGet(link string, headers map[string]string,
 	}
 	req.Header.Set("Pragma", "no-cache")
 	req.Header.Set("Upgrade-Insecure-Requests", "1")
-	if headers != nil && len(headers) > 0 {
+	if len(headers) > 0 {
 		for k, hv := range headers {
 			req.Header.Set(k, hv)
 		}
@@ -160,7 +160,7 @@ func HTTPGetResponse(link string, headers map[string]string,
 				"AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36"
 		}
 		req.Header.Set("User-Agent", uagent)
-		if headers != nil && len(headers) > 0 {
+		if len(headers) > 0 {
 			for k, hv := range headers {
 				req.Header.Set(k, hv)
 			}
@@ -263,7 +263,7 @@ func HttpGetRespUsingHeaders(link string, headers map[string]string) (res *http.
 		req.Header.Set("User-Agent",
 			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_1) "+
 				"AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36")
-		if headers != nil && len(headers) > 0 {
+		if len(headers) > 0 {
 			for k, hv := range headers {
 				req.Header.Set(k, hv)
 			}
@@ -376,7 +376,7 @@ func HTTPPostJSON(link string, headers, params map[string]string) (body []byte, 
 			return nil, err
 		}
 		req.Header.Set("Content-Type", "application/json")
-		if headers != nil && len(headers) > 0 {
+		if len(headers) > 0 {
 			for k, hv := range headers {
 				req.Header.Set(k, hv)
 			}

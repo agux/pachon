@@ -9,7 +9,7 @@ import (
 	"github.com/agux/pachon/conf"
 )
 
-const userAgent = "gcloud-golang-storage/20151204"
+// const userAgent = "gcloud-golang-storage/20151204"
 
 //GCSClient may serve as a handy wrapper for google cloud storage client,
 //Caller can reuse the same storage.Client instance in concurrent goroutines.

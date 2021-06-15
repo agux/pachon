@@ -140,7 +140,7 @@ func SprintFa(fa []float64, format, sep string, ls int) string {
 		return ""
 	}
 	if ls > 0 && ls < len(fa) {
-		lns := math.Ceil(float64(len(fa) / ls))
+		lns := math.Ceil(float64(len(fa)) / float64(ls))
 		sas := make([][]string, int(lns))
 		for i, f := range fa {
 			x := i / ls
